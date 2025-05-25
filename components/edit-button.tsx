@@ -24,7 +24,7 @@ export function EditButton({
       variant={variant}
       onClick={onClick}
       disabled={disabled || isLoading}
-      className="bg-blue-500 hover:bg-blue-600 text-white border-blue-500 hover:border-blue-600 min-w-[70px] relative z-10 pointer-events-auto"
+      className="bg-blue-500 hover:bg-blue-600 text-white border-blue-500 hover:border-blue-600 min-w-[70px]"
     >
       {isLoading ? (
         <>
