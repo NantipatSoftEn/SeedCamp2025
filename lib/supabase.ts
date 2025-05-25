@@ -77,15 +77,16 @@ export async function updatePerson(id: string, person: Partial<Person>): Promise
   const supabase = getSupabaseBrowserClient()
 
   try {
-    console.log("Updating person in Supabase:", { id, person })
+    console.log("🔄 Updating person in Supabase:", { id, person })
 
     // Transform the data for database
     const dbData = transformPersonToDB(person)
+    console.log("📝 Transformed data for DB:", dbData)
 
     const { data, error } = await supabase.from("seedcamp_people").update(dbData).eq("id", id).select().single()
 
     if (error) {
-      console.error("Supabase update error:", error)
+      console.error("❌ Supabase update error:", error)
       throw new Error(`Failed to update person: ${error.message}`)
     }
 
@@ -93,10 +94,10 @@ export async function updatePerson(id: string, person: Partial<Person>): Promise
       throw new Error("No data returned from update")
     }
 
-    console.log("Successfully updated person:", data)
+    console.log("✅ Successfully updated person in Supabase:", data)
     return transformPersonFromDB(data)
   } catch (error) {
-    console.error("Error updating person:", error)
+    console.error("❌ Error updating person:", error)
     throw error
   }
 }

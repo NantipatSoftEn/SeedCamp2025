@@ -1,10 +1,9 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { Search, Edit, Users, Phone, Loader2 } from "lucide-react"
+import { Search, Users, Phone, Loader2 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -16,6 +15,7 @@ import { EditPersonForm } from "./components/edit-person-form"
 import { formatCurrency } from "./utils/analytics"
 import { useDataSource } from "@/contexts/data-source-context"
 import { DataService } from "@/services/data-service"
+import { EditButton } from "./components/edit-button"
 
 const getPaymentStatusColor = (status: string) => {
   switch (status) {
@@ -37,10 +37,11 @@ export default function PeopleDashboard() {
   const [editingPerson, setEditingPerson] = useState<Person | null>(null)
   const [isEditFormOpen, setIsEditFormOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [updatingPersonId, setUpdatingPersonId] = useState<string | null>(null)
   const { toast } = useToast()
   const { dataSource } = useDataSource()
 
-  // Fetch people data from Supabase
+  // Fetch people data
   useEffect(() => {
     async function loadPeople() {
       setIsLoading(true)
@@ -108,15 +109,15 @@ export default function PeopleDashboard() {
   }
 
   const handleEditPerson = (person: Person) => {
+    console.log("Opening edit form for:", person)
     setEditingPerson(person)
     setIsEditFormOpen(true)
   }
 
-  // ปรับปรุงฟังก์ชัน handleSavePerson ให้มี error handling ที่ดีขึ้น
-
   const handleSavePerson = async (personId: string, formData: PersonFormData) => {
+    setUpdatingPersonId(personId)
     try {
-      console.log("Saving person:", { personId, formData, dataSource })
+      console.log("🔄 Saving person:", { personId, formData, dataSource })
 
       const dataService = new DataService(dataSource === "mock")
       const updatedPerson = await dataService.updatePerson(personId, formData)
@@ -128,31 +129,32 @@ export default function PeopleDashboard() {
         )
 
         toast({
-          title: "Person updated successfully",
-          description: `${formData.nick_name}'s information has been updated.`,
+          title: "✅ Person updated successfully",
+          description: `${formData.nick_name}'s information has been updated in ${
+            dataSource === "mock" ? "mock data" : "Supabase database"
+          }.`,
         })
 
-        console.log("Person updated successfully:", updatedPerson)
+        console.log("✅ Person updated successfully:", updatedPerson)
+
+        // Close the edit form
+        setIsEditFormOpen(false)
+        setEditingPerson(null)
       } else {
         throw new Error("No updated person returned")
       }
     } catch (error) {
-      console.error("Failed to update person:", error)
+      console.error("❌ Failed to update person:", error)
 
-      // Show specific error message
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
 
       toast({
-        title: "Update failed",
+        title: "❌ Update failed",
         description: `Failed to update ${formData.nick_name}: ${errorMessage}`,
         variant: "destructive",
       })
-
-      // Optionally reload data to ensure consistency
-      if (dataSource === "supabase") {
-        console.log("Reloading data due to update failure...")
-        // You could reload data here if needed
-      }
+    } finally {
+      setUpdatingPersonId(null)
     }
   }
 
@@ -224,7 +226,12 @@ export default function PeopleDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl font-bold">People Dashboard</CardTitle>
-            <CardDescription>Manage and view people organized by their group care assignments</CardDescription>
+            <CardDescription>
+              Manage and view people organized by their group care assignments
+              <Badge variant="outline" className="ml-2">
+                Data Source: {dataSource === "mock" ? "Mock Data" : "Supabase Database"}
+              </Badge>
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {people.length === 0 ? (
@@ -282,7 +289,7 @@ export default function PeopleDashboard() {
                           </CardHeader>
                           <CardContent>
                             {/* Mobile Card View */}
-                            <div className="block md:hidden space-y-4">
+                            <div className="block lg:hidden space-y-4">
                               {filteredPeople.length === 0 ? (
                                 <div className="text-center py-8 text-gray-500">
                                   {searchTerm ? "No people found matching your search." : "No people in this group."}
@@ -297,9 +304,11 @@ export default function PeopleDashboard() {
                                           {person.first_name} {person.last_name}
                                         </p>
                                       </div>
-                                      <Button size="sm" variant="outline" onClick={() => handleEditPerson(person)}>
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
+                                      <EditButton
+                                        onClick={() => handleEditPerson(person)}
+                                        isLoading={updatingPersonId === person.id}
+                                        disabled={updatingPersonId !== null}
+                                      />
                                     </div>
                                     <div className="space-y-2 text-sm">
                                       <div className="flex items-center gap-2">
@@ -342,13 +351,15 @@ export default function PeopleDashboard() {
                                       <TableHead className="min-w-[100px]">Payment</TableHead>
                                       <TableHead className="min-w-[80px]">Can Go</TableHead>
                                       <TableHead className="min-w-[150px]">Remark</TableHead>
-                                      <TableHead className="min-w-[80px]">Actions</TableHead>
+                                      <TableHead className="min-w-[100px] text-center sticky right-0 bg-white dark:bg-gray-800">
+                                        Actions
+                                      </TableHead>
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
                                     {filteredPeople.length === 0 ? (
                                       <TableRow>
-                                        <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                                        <TableCell colSpan={11} className="text-center py-8 text-gray-500">
                                           {searchTerm
                                             ? "No people found matching your search."
                                             : "No people in this group."}
@@ -383,14 +394,12 @@ export default function PeopleDashboard() {
                                               {person.remark || "-"}
                                             </div>
                                           </TableCell>
-                                          <TableCell>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
+                                          <TableCell className="text-center sticky right-0 bg-white dark:bg-gray-800">
+                                            <EditButton
                                               onClick={() => handleEditPerson(person)}
-                                            >
-                                              <Edit className="h-4 w-4" />
-                                            </Button>
+                                              isLoading={updatingPersonId === person.id}
+                                              disabled={updatingPersonId !== null}
+                                            />
                                           </TableCell>
                                         </TableRow>
                                       ))

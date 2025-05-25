@@ -11,6 +11,9 @@ import { DataSourceToggle } from "@/components/data-source-toggle"
 import { DebugPanel } from "@/components/debug-panel"
 // เพิ่ม import
 import { SupabaseTestButton } from "@/components/supabase-test-button"
+import { EditDebugPanel } from "@/components/edit-debug-panel"
+// เพิ่ม import
+import { StorageTestButton } from "@/components/storage-test-button"
 
 export default function Page() {
   const [currentView, setCurrentView] = useState<"people" | "analytics">("people")
@@ -50,6 +53,7 @@ export default function Page() {
                 </Link>
               </Button>
               <SupabaseTestButton />
+              <StorageTestButton />
               <DataSourceToggle />
             </div>
           </div>
@@ -61,6 +65,7 @@ export default function Page() {
 
       {/* Debug Panel - แสดงเฉพาะใน development */}
       <DebugPanel />
+      <EditDebugPanel />
     </div>
   )
 }

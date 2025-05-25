@@ -19,8 +19,10 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent } from "@/components/ui/card"
 import { PaymentSlipUpload } from "./payment-slip-upload"
+import { Loader2, Save, Database, FileJson } from "lucide-react"
 
 import type { Person, PersonFormData } from "../types/person"
+import { useDataSource } from "@/contexts/data-source-context"
 
 interface EditPersonFormProps {
   person: Person | null
@@ -48,6 +50,8 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
   })
 
   const [errors, setErrors] = useState<Partial<PersonFormData>>({})
+  const [isSaving, setIsSaving] = useState(false)
+  const { dataSource } = useDataSource()
 
   useEffect(() => {
     if (person) {
@@ -93,12 +97,19 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (person && validateForm()) {
-      console.log("Submitting form:", { personId: person.id, formData })
-      onSave(person.id, formData)
-      onClose()
+      setIsSaving(true)
+      try {
+        console.log("📝 Submitting form:", { personId: person.id, formData })
+        await onSave(person.id, formData)
+        // Form will be closed by parent component after successful save
+      } catch (error) {
+        console.error("❌ Error in form submission:", error)
+        setIsSaving(false) // Reset saving state on error
+      }
+      // Don't reset isSaving here - let parent handle it
     }
   }
 
@@ -109,13 +120,38 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
     }
   }
 
+  const handleClose = () => {
+    if (!isSaving) {
+      onClose()
+    }
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Person</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            Edit Person
+            {dataSource === "mock" ? (
+              <div className="flex items-center gap-1">
+                <FileJson className="h-4 w-4" />
+                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Mock Data</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1">
+                <Database className="h-4 w-4" />
+                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Live Database</span>
+              </div>
+            )}
+          </DialogTitle>
           <DialogDescription>
             Update the information for {person?.nick_name}. All fields marked with * are required.
+            {dataSource === "supabase" && (
+              <span className="block text-sm text-green-600 mt-1">
+                ✅ Changes will be saved to Supabase database
+                <br />📁 Payment slips will be stored in Supabase Storage with person identification
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -133,6 +169,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
                     value={formData.nick_name}
                     onChange={(e) => handleInputChange("nick_name", e.target.value)}
                     className={errors.nick_name ? "border-red-500" : ""}
+                    disabled={isSaving}
                   />
                   {errors.nick_name && <p className="text-sm text-red-500">{errors.nick_name}</p>}
                 </div>
@@ -144,6 +181,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
                     value={formData.first_name}
                     onChange={(e) => handleInputChange("first_name", e.target.value)}
                     className={errors.first_name ? "border-red-500" : ""}
+                    disabled={isSaving}
                   />
                   {errors.first_name && <p className="text-sm text-red-500">{errors.first_name}</p>}
                 </div>
@@ -155,6 +193,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
                     value={formData.last_name}
                     onChange={(e) => handleInputChange("last_name", e.target.value)}
                     className={errors.last_name ? "border-red-500" : ""}
+                    disabled={isSaving}
                   />
                   {errors.last_name && <p className="text-sm text-red-500">{errors.last_name}</p>}
                 </div>
@@ -164,6 +203,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
                   <Select
                     value={formData.gender}
                     onValueChange={(value: "Male" | "Female" | "Other") => handleInputChange("gender", value)}
+                    disabled={isSaving}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -191,6 +231,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
                     onChange={(e) => handleInputChange("phone", e.target.value)}
                     placeholder="081-234-5678"
                     className={errors.phone ? "border-red-500" : ""}
+                    disabled={isSaving}
                   />
                   {errors.phone && <p className="text-sm text-red-500">{errors.phone}</p>}
                 </div>
@@ -202,6 +243,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
                     onValueChange={(value: "XS" | "S" | "M" | "L" | "XL" | "XXL") =>
                       handleInputChange("shirt_size", value)
                     }
+                    disabled={isSaving}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -222,6 +264,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
                   <Select
                     value={formData.payment_status}
                     onValueChange={(value: "Paid" | "Pending" | "Unpaid") => handleInputChange("payment_status", value)}
+                    disabled={isSaving}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -244,13 +287,18 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
                     min="0"
                     step="50"
                     className={errors.payment_amount ? "border-red-500" : ""}
+                    disabled={isSaving}
                   />
                   {errors.payment_amount && <p className="text-sm text-red-500">{errors.payment_amount}</p>}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="group_care">Group Care</Label>
-                  <Select value={formData.group_care} onValueChange={(value) => handleInputChange("group_care", value)}>
+                  <Select
+                    value={formData.group_care}
+                    onValueChange={(value) => handleInputChange("group_care", value)}
+                    disabled={isSaving}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -277,6 +325,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
                   id="can_go"
                   checked={formData.can_go}
                   onCheckedChange={(checked) => handleInputChange("can_go", checked)}
+                  disabled={isSaving}
                 />
                 <Label htmlFor="can_go">Can go to the event</Label>
               </div>
@@ -289,33 +338,61 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
                   onChange={(e) => handleInputChange("remark", e.target.value)}
                   placeholder="Additional notes or comments..."
                   rows={3}
+                  disabled={isSaving}
                 />
               </div>
             </CardContent>
           </Card>
 
-          {/* Payment Slip Upload - Show only for Unpaid status */}
-          {formData.payment_status === "Unpaid" && (
-            <Card>
-              <CardContent className="p-4 space-y-4">
-                <h3 className="font-semibold text-sm text-gray-700">Payment Information</h3>
-                <PaymentSlipUpload
-                  currentSlip={formData.payment_slip}
-                  onSlipChange={(slip) => handleInputChange("payment_slip", slip)}
-                />
-                <p className="text-xs text-gray-500">
-                  Please upload payment slip to change status from Unpaid to Pending
+          {/* Payment Slip Upload */}
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <h3 className="font-semibold text-sm text-gray-700 flex items-center gap-2">
+                Payment Slip Upload
+                {dataSource === "supabase" && (
+                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">📁 Supabase Storage</span>
+                )}
+              </h3>
+              <PaymentSlipUpload
+                currentSlip={formData.payment_slip}
+                onSlipChange={(slip) => handleInputChange("payment_slip", slip)}
+                personInfo={{
+                  nickname: formData.nick_name,
+                  firstName: formData.first_name,
+                  lastName: formData.last_name,
+                }}
+              />
+              {dataSource === "supabase" && (
+                <p className="text-xs text-blue-600">
+                  💡 Files will be saved with format: {formData.nick_name}_{formData.first_name}_{formData.last_name}
+                  _[timestamp]
                 </p>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
 
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
-            <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              disabled={isSaving}
+              className="w-full sm:w-auto"
+            >
               Cancel
             </Button>
-            <Button type="submit" className="w-full sm:w-auto">
-              Save Changes
+            <Button type="submit" disabled={isSaving} className="w-full sm:w-auto">
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Saving to {dataSource === "mock" ? "Mock Data" : "Database"}...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Changes
+                </>
+              )}
             </Button>
           </DialogFooter>
         </form>
