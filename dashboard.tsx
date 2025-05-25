@@ -243,13 +243,13 @@ export default function PeopleDashboard() {
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <div className="flex flex-col space-y-4">
                   {/* Tab Navigation - Responsive */}
-                  <div className="overflow-x-auto">
-                    <TabsList className="inline-flex h-auto min-w-full">
+                  <div className="w-full overflow-x-auto">
+                    <TabsList className="flex w-max min-w-full h-auto p-1">
                       {groupCareValues.map((groupCare) => (
                         <TabsTrigger
                           key={groupCare}
                           value={groupCare}
-                          className="flex items-center gap-2 p-3 whitespace-nowrap"
+                          className="flex items-center gap-2 p-3 whitespace-nowrap flex-shrink-0"
                         >
                           <span className="hidden sm:inline">{groupCare}</span>
                           <span className="sm:hidden">{groupCare.slice(0, 3)}</span>
@@ -289,7 +289,7 @@ export default function PeopleDashboard() {
                           </CardHeader>
                           <CardContent>
                             {/* Mobile Card View */}
-                            <div className="block lg:hidden space-y-4">
+                            <div className="block md:hidden space-y-4">
                               {filteredPeople.length === 0 ? (
                                 <div className="text-center py-8 text-gray-500">
                                   {searchTerm ? "No people found matching your search." : "No people in this group."}
@@ -298,25 +298,27 @@ export default function PeopleDashboard() {
                                 filteredPeople.map((person) => (
                                   <Card key={person.id} className="p-4">
                                     <div className="flex justify-between items-start mb-3">
-                                      <div>
+                                      <div className="flex-1">
                                         <h3 className="font-semibold text-lg">{person.nick_name}</h3>
                                         <p className="text-sm text-gray-600">
                                           {person.first_name} {person.last_name}
                                         </p>
                                       </div>
-                                      <EditButton
-                                        onClick={() => handleEditPerson(person)}
-                                        isLoading={updatingPersonId === person.id}
-                                        disabled={updatingPersonId !== null}
-                                      />
+                                      <div className="ml-4 flex-shrink-0">
+                                        <EditButton
+                                          onClick={() => handleEditPerson(person)}
+                                          isLoading={updatingPersonId === person.id}
+                                          disabled={updatingPersonId !== null}
+                                        />
+                                      </div>
                                     </div>
                                     <div className="space-y-2 text-sm">
                                       <div className="flex items-center gap-2">
-                                        <Phone className="h-4 w-4 text-gray-400" />
-                                        <span>{person.phone}</span>
+                                        <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                                        <span className="break-all">{person.phone}</span>
                                       </div>
                                       <div className="flex items-center gap-2">
-                                        <span className="text-gray-400">Amount:</span>
+                                        <span className="text-gray-400 flex-shrink-0">Amount:</span>
                                         <span className="font-medium">{formatCurrency(person.payment_amount)}</span>
                                       </div>
                                       <div className="flex flex-wrap gap-2">
@@ -328,7 +330,9 @@ export default function PeopleDashboard() {
                                           {person.can_go ? "Can Go" : "Cannot Go"}
                                         </Badge>
                                       </div>
-                                      {person.remark && <p className="text-gray-600 text-xs mt-2">{person.remark}</p>}
+                                      {person.remark && (
+                                        <p className="text-gray-600 text-xs mt-2 break-words">{person.remark}</p>
+                                      )}
                                     </div>
                                   </Card>
                                 ))
@@ -351,9 +355,7 @@ export default function PeopleDashboard() {
                                       <TableHead className="min-w-[100px]">Payment</TableHead>
                                       <TableHead className="min-w-[80px]">Can Go</TableHead>
                                       <TableHead className="min-w-[150px]">Remark</TableHead>
-                                      <TableHead className="min-w-[100px] text-center sticky right-0 bg-white dark:bg-gray-800">
-                                        Actions
-                                      </TableHead>
+                                      <TableHead className="min-w-[100px] text-center">Actions</TableHead>
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
@@ -394,7 +396,7 @@ export default function PeopleDashboard() {
                                               {person.remark || "-"}
                                             </div>
                                           </TableCell>
-                                          <TableCell className="text-center sticky right-0 bg-white dark:bg-gray-800">
+                                          <TableCell className="text-center">
                                             <EditButton
                                               onClick={() => handleEditPerson(person)}
                                               isLoading={updatingPersonId === person.id}
