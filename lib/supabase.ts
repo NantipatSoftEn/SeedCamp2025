@@ -51,7 +51,6 @@ export type Database = {
 }
 
 // API functions
-// ปรับปรุงฟังก์ชัน fetchPeople
 export async function fetchPeople(): Promise<Person[]> {
   const supabase = getSupabaseBrowserClient()
 
@@ -76,19 +75,30 @@ export async function fetchPeople(): Promise<Person[]> {
 
 export async function updatePerson(id: string, person: Partial<Person>): Promise<Person | null> {
   const supabase = getSupabaseBrowserClient()
-  const { data, error } = await supabase
-    .from("seedcamp_people")
-    .update(transformPersonToDB(person))
-    .eq("id", id)
-    .select()
-    .single()
 
-  if (error) {
+  try {
+    console.log("Updating person in Supabase:", { id, person })
+
+    // Transform the data for database
+    const dbData = transformPersonToDB(person)
+
+    const { data, error } = await supabase.from("seedcamp_people").update(dbData).eq("id", id).select().single()
+
+    if (error) {
+      console.error("Supabase update error:", error)
+      throw new Error(`Failed to update person: ${error.message}`)
+    }
+
+    if (!data) {
+      throw new Error("No data returned from update")
+    }
+
+    console.log("Successfully updated person:", data)
+    return transformPersonFromDB(data)
+  } catch (error) {
     console.error("Error updating person:", error)
-    return null
+    throw error
   }
-
-  return transformPersonFromDB(data)
 }
 
 // Helper functions to transform data between app and DB formats
@@ -107,16 +117,32 @@ function transformPersonFromDB(dbPerson: any): Person {
     can_go: dbPerson.can_go === null ? true : dbPerson.can_go,
     remark: dbPerson.remark || "",
     group_care: dbPerson.group_care || "ungroup",
+    congenital_disease: dbPerson.congenital_disease,
+    created_at: dbPerson.created_at,
+    updated_at: dbPerson.updated_at,
   }
 }
 
 function transformPersonToDB(person: Partial<Person>): any {
-  const dbPerson: any = { ...person }
+  const dbPerson: any = {}
 
-  // Transform gender to lowercase for DB
-  if (person.gender) {
-    dbPerson.gender = person.gender.toLowerCase()
-  }
+  // Only include fields that are provided
+  if (person.nick_name !== undefined) dbPerson.nick_name = person.nick_name
+  if (person.first_name !== undefined) dbPerson.first_name = person.first_name
+  if (person.last_name !== undefined) dbPerson.last_name = person.last_name
+  if (person.gender !== undefined) dbPerson.gender = person.gender.toLowerCase()
+  if (person.phone !== undefined) dbPerson.phone = person.phone
+  if (person.shirt_size !== undefined) dbPerson.shirt_size = person.shirt_size
+  if (person.payment_status !== undefined) dbPerson.payment_status = person.payment_status.toLowerCase()
+  if (person.payment_amount !== undefined) dbPerson.payment_amount = person.payment_amount
+  if (person.payment_slip !== undefined) dbPerson.payment_slip = person.payment_slip
+  if (person.can_go !== undefined) dbPerson.can_go = person.can_go
+  if (person.remark !== undefined) dbPerson.remark = person.remark
+  if (person.group_care !== undefined) dbPerson.group_care = person.group_care
+  if (person.congenital_disease !== undefined) dbPerson.congenital_disease = person.congenital_disease
+
+  // Always update the updated_at timestamp
+  dbPerson.updated_at = new Date().toISOString()
 
   return dbPerson
 }

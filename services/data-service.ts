@@ -4,6 +4,7 @@ import { fetchPeople as fetchSupabasePeople, updatePerson as updateSupabasePerso
 
 export class DataService {
   private useMockData: boolean
+  private static mockDataCache: Person[] = [...mockPeople]
 
   constructor(useMockData = false) {
     this.useMockData = useMockData
@@ -11,26 +12,44 @@ export class DataService {
 
   async fetchPeople(): Promise<Person[]> {
     if (this.useMockData) {
-      // Simulate async behavior for mock data
+      // Return cached mock data to maintain state
       return new Promise((resolve) => {
         setTimeout(() => {
-          resolve(mockPeople)
+          resolve([...DataService.mockDataCache])
         }, 500)
       })
     }
     return fetchSupabasePeople()
   }
 
-  async updatePerson(id: string, person: Partial<Person>): Promise<Person | null> {
+  async updatePerson(id: string, personData: Partial<Person>): Promise<Person | null> {
     if (this.useMockData) {
-      // For mock data, just return the updated person
-      return new Promise((resolve) => {
+      // Update mock data cache
+      return new Promise((resolve, reject) => {
         setTimeout(() => {
-          const updatedPerson = { ...mockPeople.find((p) => p.id === id), ...person } as Person
-          resolve(updatedPerson)
+          const personIndex = DataService.mockDataCache.findIndex((p) => p.id === id)
+          if (personIndex === -1) {
+            reject(new Error("Person not found"))
+            return
+          }
+
+          // Update the person in cache
+          DataService.mockDataCache[personIndex] = {
+            ...DataService.mockDataCache[personIndex],
+            ...personData,
+          }
+
+          resolve(DataService.mockDataCache[personIndex])
         }, 300)
       })
     }
-    return updateSupabasePerson(id, person)
+
+    // Use Supabase for real data
+    return updateSupabasePerson(id, personData)
+  }
+
+  // Method to reset mock data cache
+  static resetMockData() {
+    DataService.mockDataCache = [...mockPeople]
   }
 }

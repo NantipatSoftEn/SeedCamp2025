@@ -96,6 +96,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (person && validateForm()) {
+      console.log("Submitting form:", { personId: person.id, formData })
       onSave(person.id, formData)
       onClose()
     }

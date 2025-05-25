@@ -112,28 +112,47 @@ export default function PeopleDashboard() {
     setIsEditFormOpen(true)
   }
 
+  // ปรับปรุงฟังก์ชัน handleSavePerson ให้มี error handling ที่ดีขึ้น
+
   const handleSavePerson = async (personId: string, formData: PersonFormData) => {
     try {
+      console.log("Saving person:", { personId, formData, dataSource })
+
       const dataService = new DataService(dataSource === "mock")
       const updatedPerson = await dataService.updatePerson(personId, formData)
 
       if (updatedPerson) {
+        // Update local state immediately for better UX
         setPeople((prevPeople) =>
           prevPeople.map((person) => (person.id === personId ? { ...person, ...formData } : person)),
         )
 
         toast({
-          title: "Person updated",
-          description: `${formData.nick_name}'s information has been updated successfully.`,
+          title: "Person updated successfully",
+          description: `${formData.nick_name}'s information has been updated.`,
         })
+
+        console.log("Person updated successfully:", updatedPerson)
+      } else {
+        throw new Error("No updated person returned")
       }
     } catch (error) {
       console.error("Failed to update person:", error)
+
+      // Show specific error message
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred"
+
       toast({
         title: "Update failed",
-        description: "There was a problem updating the person's information.",
+        description: `Failed to update ${formData.nick_name}: ${errorMessage}`,
         variant: "destructive",
       })
+
+      // Optionally reload data to ensure consistency
+      if (dataSource === "supabase") {
+        console.log("Reloading data due to update failure...")
+        // You could reload data here if needed
+      }
     }
   }
 

@@ -9,6 +9,8 @@ import PeopleDashboard from "../dashboard"
 import AnalyticsDashboard from "../analytics-dashboard"
 import { DataSourceToggle } from "@/components/data-source-toggle"
 import { DebugPanel } from "@/components/debug-panel"
+// เพิ่ม import
+import { SupabaseTestButton } from "@/components/supabase-test-button"
 
 export default function Page() {
   const [currentView, setCurrentView] = useState<"people" | "analytics">("people")
@@ -20,6 +22,7 @@ export default function Page() {
         <div className="container mx-auto p-4">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold">SeedCamp Management</h1>
+            {/* เพิ่มปุ่มทดสอบใน navigation */}
             <div className="flex gap-2">
               <Button
                 variant={currentView === "people" ? "default" : "outline"}
@@ -46,6 +49,7 @@ export default function Page() {
                   <span className="sm:hidden">Import</span>
                 </Link>
               </Button>
+              <SupabaseTestButton />
               <DataSourceToggle />
             </div>
           </div>
