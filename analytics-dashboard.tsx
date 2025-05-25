@@ -1,18 +1,53 @@
 "use client"
 
-import { useMemo } from "react"
-import { Users, CheckCircle, XCircle, Target, DollarSign, TrendingUp } from "lucide-react"
+import { useMemo, useState, useEffect } from "react"
+import { Users, CheckCircle, XCircle, Target, DollarSign, TrendingUp, Loader2 } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { mockPeople } from "./data/mock-data"
+import { useToast } from "@/components/ui/use-toast"
+
 import { calculateAnalytics, getGenderColor, formatCurrency } from "./utils/analytics"
 import { BarChart, MetricCard } from "./components/charts"
+import type { Person } from "./types/person"
+import { useDataSource } from "@/contexts/data-source-context"
+import { DataService } from "@/services/data-service"
 
 export default function AnalyticsDashboard() {
-  const analytics = useMemo(() => calculateAnalytics(mockPeople), [])
+  const [people, setPeople] = useState<Person[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const { toast } = useToast()
+  const { dataSource } = useDataSource()
+
+  // Fetch people data from Supabase
+  useEffect(() => {
+    async function loadPeople() {
+      setIsLoading(true)
+      try {
+        const dataService = new DataService(dataSource === "mock")
+        const data = await dataService.fetchPeople()
+        setPeople(data)
+      } catch (error) {
+        console.error("Failed to load people:", error)
+        toast({
+          title: "Error loading data",
+          description:
+            dataSource === "mock"
+              ? "There was a problem loading the mock data for analytics."
+              : "There was a problem loading the people data from Supabase for analytics.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadPeople()
+  }, [toast, dataSource])
+
+  const analytics = useMemo(() => calculateAnalytics(people), [people])
 
   const paymentChartData = [
     {
@@ -55,6 +90,20 @@ export default function AnalyticsDashboard() {
     percentage: item.percentage,
     color: "bg-purple-500",
   }))
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-lg font-medium">Loading analytics data...</p>
+          <p className="text-sm text-gray-500">
+            {dataSource === "mock" ? "Using mock data" : "Connecting to Supabase..."}
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -121,7 +170,6 @@ export default function AnalyticsDashboard() {
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* PieChart component is imported but not used here */}
               <BarChart data={groupChartData} title="Group Distribution" />
             </div>
 
@@ -228,7 +276,6 @@ export default function AnalyticsDashboard() {
           {/* Demographics Tab */}
           <TabsContent value="demographics" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* PieChart component is imported but not used here */}
               <BarChart data={shirtSizeChartData} title="Shirt Size Distribution" />
             </div>
 

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { Search, Edit, Users, Phone } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { Search, Edit, Users, Phone, Loader2 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -9,11 +9,13 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useToast } from "@/components/ui/use-toast"
 
 import type { Person, PersonFormData } from "./types/person"
-import { mockPeople } from "./data/mock-data"
 import { EditPersonForm } from "./components/edit-person-form"
 import { formatCurrency } from "./utils/analytics"
+import { useDataSource } from "@/contexts/data-source-context"
+import { DataService } from "@/services/data-service"
 
 const getPaymentStatusColor = (status: string) => {
   switch (status) {
@@ -30,10 +32,45 @@ const getPaymentStatusColor = (status: string) => {
 
 export default function PeopleDashboard() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [activeTab, setActiveTab] = useState("รังสิต")
-  const [people, setPeople] = useState<Person[]>(mockPeople)
+  const [activeTab, setActiveTab] = useState("")
+  const [people, setPeople] = useState<Person[]>([])
   const [editingPerson, setEditingPerson] = useState<Person | null>(null)
   const [isEditFormOpen, setIsEditFormOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const { toast } = useToast()
+  const { dataSource } = useDataSource()
+
+  // Fetch people data from Supabase
+  useEffect(() => {
+    async function loadPeople() {
+      setIsLoading(true)
+      try {
+        const dataService = new DataService(dataSource === "mock")
+        const data = await dataService.fetchPeople()
+        setPeople(data)
+
+        // Set initial active tab if we have data
+        if (data.length > 0) {
+          const groups = Array.from(new Set(data.map((p) => p.group_care)))
+          setActiveTab(groups[0] || "")
+        }
+      } catch (error) {
+        console.error("Failed to load people:", error)
+        toast({
+          title: "Error loading data",
+          description:
+            dataSource === "mock"
+              ? "There was a problem loading the mock data."
+              : "There was a problem loading the people data from Supabase.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadPeople()
+  }, [toast, dataSource])
 
   // Get unique group_care values
   const groupCareValues = useMemo(() => {
@@ -75,10 +112,29 @@ export default function PeopleDashboard() {
     setIsEditFormOpen(true)
   }
 
-  const handleSavePerson = (personId: string, formData: PersonFormData) => {
-    setPeople((prevPeople) =>
-      prevPeople.map((person) => (person.id === personId ? { ...person, ...formData } : person)),
-    )
+  const handleSavePerson = async (personId: string, formData: PersonFormData) => {
+    try {
+      const dataService = new DataService(dataSource === "mock")
+      const updatedPerson = await dataService.updatePerson(personId, formData)
+
+      if (updatedPerson) {
+        setPeople((prevPeople) =>
+          prevPeople.map((person) => (person.id === personId ? { ...person, ...formData } : person)),
+        )
+
+        toast({
+          title: "Person updated",
+          description: `${formData.nick_name}'s information has been updated successfully.`,
+        })
+      }
+    } catch (error) {
+      console.error("Failed to update person:", error)
+      toast({
+        title: "Update failed",
+        description: "There was a problem updating the person's information.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleCloseEditForm = () => {
@@ -90,6 +146,20 @@ export default function PeopleDashboard() {
   const totalPeople = people.length
   const paidCount = people.filter((p) => p.payment_status === "Paid").length
   const canGoCount = people.filter((p) => p.can_go).length
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-lg font-medium">Loading people data...</p>
+          <p className="text-sm text-gray-500">
+            {dataSource === "mock" ? "Using mock data" : "Connecting to Supabase..."}
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -138,175 +208,186 @@ export default function PeopleDashboard() {
             <CardDescription>Manage and view people organized by their group care assignments</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="flex flex-col space-y-4">
-                {/* Tab Navigation - Responsive */}
-                <div className="overflow-x-auto">
-                  <TabsList className="inline-flex h-auto min-w-full">
-                    {groupCareValues.map((groupCare) => (
-                      <TabsTrigger
-                        key={groupCare}
-                        value={groupCare}
-                        className="flex items-center gap-2 p-3 whitespace-nowrap"
-                      >
-                        <span className="hidden sm:inline">{groupCare}</span>
-                        <span className="sm:hidden">{groupCare.slice(0, 3)}</span>
-                        <Badge variant="secondary" className="ml-1">
-                          {groupedPeople[groupCare]?.length || 0}
-                        </Badge>
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </div>
+            {people.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-lg font-medium mb-4">No people found in the database</p>
+                <p className="text-gray-500">You need to import data or add people to get started.</p>
+              </div>
+            ) : (
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <div className="flex flex-col space-y-4">
+                  {/* Tab Navigation - Responsive */}
+                  <div className="overflow-x-auto">
+                    <TabsList className="inline-flex h-auto min-w-full">
+                      {groupCareValues.map((groupCare) => (
+                        <TabsTrigger
+                          key={groupCare}
+                          value={groupCare}
+                          className="flex items-center gap-2 p-3 whitespace-nowrap"
+                        >
+                          <span className="hidden sm:inline">{groupCare}</span>
+                          <span className="sm:hidden">{groupCare.slice(0, 3)}</span>
+                          <Badge variant="secondary" className="ml-1">
+                            {groupedPeople[groupCare]?.length || 0}
+                          </Badge>
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </div>
 
-                {/* Search Input */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="Search by name, phone, or remark..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+                  {/* Search Input */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Search by name, phone, or remark..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
 
-                {/* Tab Content */}
-                {groupCareValues.map((groupCare) => {
-                  const filteredPeople = getFilteredPeople(groupedPeople[groupCare] || [])
+                  {/* Tab Content */}
+                  {groupCareValues.map((groupCare) => {
+                    const filteredPeople = getFilteredPeople(groupedPeople[groupCare] || [])
 
-                  return (
-                    <TabsContent key={groupCare} value={groupCare} className="mt-4">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-2">
-                            <span>Group: {groupCare}</span>
-                            <Badge variant="outline">
-                              {filteredPeople.length} of {groupedPeople[groupCare]?.length || 0} people
-                            </Badge>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {/* Mobile Card View */}
-                          <div className="block md:hidden space-y-4">
-                            {filteredPeople.length === 0 ? (
-                              <div className="text-center py-8 text-gray-500">
-                                {searchTerm ? "No people found matching your search." : "No people in this group."}
-                              </div>
-                            ) : (
-                              filteredPeople.map((person) => (
-                                <Card key={person.id} className="p-4">
-                                  <div className="flex justify-between items-start mb-3">
-                                    <div>
-                                      <h3 className="font-semibold text-lg">{person.nick_name}</h3>
-                                      <p className="text-sm text-gray-600">
-                                        {person.first_name} {person.last_name}
-                                      </p>
+                    return (
+                      <TabsContent key={groupCare} value={groupCare} className="mt-4">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex flex-col sm:flex-row sm:items-center gap-2">
+                              <span>Group: {groupCare}</span>
+                              <Badge variant="outline">
+                                {filteredPeople.length} of {groupedPeople[groupCare]?.length || 0} people
+                              </Badge>
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            {/* Mobile Card View */}
+                            <div className="block md:hidden space-y-4">
+                              {filteredPeople.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500">
+                                  {searchTerm ? "No people found matching your search." : "No people in this group."}
+                                </div>
+                              ) : (
+                                filteredPeople.map((person) => (
+                                  <Card key={person.id} className="p-4">
+                                    <div className="flex justify-between items-start mb-3">
+                                      <div>
+                                        <h3 className="font-semibold text-lg">{person.nick_name}</h3>
+                                        <p className="text-sm text-gray-600">
+                                          {person.first_name} {person.last_name}
+                                        </p>
+                                      </div>
+                                      <Button size="sm" variant="outline" onClick={() => handleEditPerson(person)}>
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
                                     </div>
-                                    <Button size="sm" variant="outline" onClick={() => handleEditPerson(person)}>
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                  <div className="space-y-2 text-sm">
-                                    <div className="flex items-center gap-2">
-                                      <Phone className="h-4 w-4 text-gray-400" />
-                                      <span>{person.phone}</span>
+                                    <div className="space-y-2 text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <Phone className="h-4 w-4 text-gray-400" />
+                                        <span>{person.phone}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-gray-400">Amount:</span>
+                                        <span className="font-medium">{formatCurrency(person.payment_amount)}</span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-2">
+                                        <Badge variant="outline">{person.shirt_size}</Badge>
+                                        <Badge className={getPaymentStatusColor(person.payment_status)}>
+                                          {person.payment_status}
+                                        </Badge>
+                                        <Badge variant={person.can_go ? "default" : "destructive"}>
+                                          {person.can_go ? "Can Go" : "Cannot Go"}
+                                        </Badge>
+                                      </div>
+                                      {person.remark && <p className="text-gray-600 text-xs mt-2">{person.remark}</p>}
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-gray-400">Amount:</span>
-                                      <span className="font-medium">{formatCurrency(person.payment_amount)}</span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                      <Badge variant="outline">{person.shirt_size}</Badge>
-                                      <Badge className={getPaymentStatusColor(person.payment_status)}>
-                                        {person.payment_status}
-                                      </Badge>
-                                      <Badge variant={person.can_go ? "default" : "destructive"}>
-                                        {person.can_go ? "Can Go" : "Cannot Go"}
-                                      </Badge>
-                                    </div>
-                                    {person.remark && <p className="text-gray-600 text-xs mt-2">{person.remark}</p>}
-                                  </div>
-                                </Card>
-                              ))
-                            )}
-                          </div>
+                                  </Card>
+                                ))
+                              )}
+                            </div>
 
-                          {/* Desktop Table View */}
-                          <div className="hidden md:block rounded-md border overflow-hidden">
-                            <div className="overflow-x-auto">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead className="min-w-[80px]">Nickname</TableHead>
-                                    <TableHead className="min-w-[100px]">First Name</TableHead>
-                                    <TableHead className="min-w-[100px]">Last Name</TableHead>
-                                    <TableHead className="min-w-[80px]">Gender</TableHead>
-                                    <TableHead className="min-w-[120px]">Phone</TableHead>
-                                    <TableHead className="min-w-[100px]">Amount</TableHead>
-                                    <TableHead className="min-w-[80px]">Shirt Size</TableHead>
-                                    <TableHead className="min-w-[100px]">Payment</TableHead>
-                                    <TableHead className="min-w-[80px]">Can Go</TableHead>
-                                    <TableHead className="min-w-[150px]">Remark</TableHead>
-                                    <TableHead className="min-w-[80px]">Actions</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {filteredPeople.length === 0 ? (
+                            {/* Desktop Table View */}
+                            <div className="hidden md:block rounded-md border overflow-hidden">
+                              <div className="overflow-x-auto">
+                                <Table>
+                                  <TableHeader>
                                     <TableRow>
-                                      <TableCell colSpan={10} className="text-center py-8 text-gray-500">
-                                        {searchTerm
-                                          ? "No people found matching your search."
-                                          : "No people in this group."}
-                                      </TableCell>
+                                      <TableHead className="min-w-[80px]">Nickname</TableHead>
+                                      <TableHead className="min-w-[100px]">First Name</TableHead>
+                                      <TableHead className="min-w-[100px]">Last Name</TableHead>
+                                      <TableHead className="min-w-[80px]">Gender</TableHead>
+                                      <TableHead className="min-w-[120px]">Phone</TableHead>
+                                      <TableHead className="min-w-[100px]">Amount</TableHead>
+                                      <TableHead className="min-w-[80px]">Shirt Size</TableHead>
+                                      <TableHead className="min-w-[100px]">Payment</TableHead>
+                                      <TableHead className="min-w-[80px]">Can Go</TableHead>
+                                      <TableHead className="min-w-[150px]">Remark</TableHead>
+                                      <TableHead className="min-w-[80px]">Actions</TableHead>
                                     </TableRow>
-                                  ) : (
-                                    filteredPeople.map((person) => (
-                                      <TableRow key={person.id}>
-                                        <TableCell className="font-medium">{person.nick_name}</TableCell>
-                                        <TableCell>{person.first_name}</TableCell>
-                                        <TableCell>{person.last_name}</TableCell>
-                                        <TableCell>{person.gender}</TableCell>
-                                        <TableCell className="font-mono text-sm">{person.phone}</TableCell>
-                                        <TableCell className="font-mono text-sm">
-                                          {formatCurrency(person.payment_amount)}
-                                        </TableCell>
-                                        <TableCell>
-                                          <Badge variant="outline">{person.shirt_size}</Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                          <Badge className={getPaymentStatusColor(person.payment_status)}>
-                                            {person.payment_status}
-                                          </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                          <Badge variant={person.can_go ? "default" : "destructive"}>
-                                            {person.can_go ? "Yes" : "No"}
-                                          </Badge>
-                                        </TableCell>
-                                        <TableCell className="max-w-[200px]">
-                                          <div className="truncate" title={person.remark}>
-                                            {person.remark || "-"}
-                                          </div>
-                                        </TableCell>
-                                        <TableCell>
-                                          <Button size="sm" variant="outline" onClick={() => handleEditPerson(person)}>
-                                            <Edit className="h-4 w-4" />
-                                          </Button>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {filteredPeople.length === 0 ? (
+                                      <TableRow>
+                                        <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                                          {searchTerm
+                                            ? "No people found matching your search."
+                                            : "No people in this group."}
                                         </TableCell>
                                       </TableRow>
-                                    ))
-                                  )}
-                                </TableBody>
-                              </Table>
+                                    ) : (
+                                      filteredPeople.map((person) => (
+                                        <TableRow key={person.id}>
+                                          <TableCell className="font-medium">{person.nick_name}</TableCell>
+                                          <TableCell>{person.first_name}</TableCell>
+                                          <TableCell>{person.last_name}</TableCell>
+                                          <TableCell>{person.gender}</TableCell>
+                                          <TableCell className="font-mono text-sm">{person.phone}</TableCell>
+                                          <TableCell className="font-mono text-sm">
+                                            {formatCurrency(person.payment_amount)}
+                                          </TableCell>
+                                          <TableCell>
+                                            <Badge variant="outline">{person.shirt_size}</Badge>
+                                          </TableCell>
+                                          <TableCell>
+                                            <Badge className={getPaymentStatusColor(person.payment_status)}>
+                                              {person.payment_status}
+                                            </Badge>
+                                          </TableCell>
+                                          <TableCell>
+                                            <Badge variant={person.can_go ? "default" : "destructive"}>
+                                              {person.can_go ? "Yes" : "No"}
+                                            </Badge>
+                                          </TableCell>
+                                          <TableCell className="max-w-[200px]">
+                                            <div className="truncate" title={person.remark}>
+                                              {person.remark || "-"}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() => handleEditPerson(person)}
+                                            >
+                                              <Edit className="h-4 w-4" />
+                                            </Button>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))
+                                    )}
+                                  </TableBody>
+                                </Table>
+                              </div>
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                  )
-                })}
-              </div>
-            </Tabs>
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+                    )
+                  })}
+                </div>
+              </Tabs>
+            )}
           </CardContent>
         </Card>
 
