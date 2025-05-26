@@ -69,7 +69,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
 
         // ถ้ามี payment slip ล่าสุด ให้ใช้เป็น current slip
         if (slips.length > 0 && !currentSlip) {
-          onSlipChange(slips[0].url)
+          onSlipChange(slips[0].path) // ใช้ path แทน URL
         }
       } catch (error) {
         console.error("Failed to load payment slips:", error)
@@ -148,7 +148,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       }, 200)
 
       // Delete old file if exists
-      if (currentSlip && currentSlip.includes("supabase")) {
+      if (currentSlip && (currentSlip.includes("supabase") || currentSlip.includes("public/"))) {
         console.log("🗑️ Deleting old file before upload...")
         await supabaseStorage.deletePaymentSlip(currentSlip, personInfo.id)
       }
@@ -167,8 +167,8 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       setUploadProgress(100)
 
       if (result) {
-        // ใช้ public URL สำหรับแสดงรูป
-        onSlipChange(result.url)
+        // ใช้ path แทน public URL สำหรับ currentSlip
+        onSlipChange(result.path)
         setUploadSuccess(true)
         setTimeout(() => setUploadSuccess(false), 3000)
 
@@ -199,7 +199,11 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
   }
 
   const removeSlip = async () => {
-    if (currentSlip && dataSource === "supabase" && currentSlip.includes("supabase")) {
+    if (
+      currentSlip &&
+      dataSource === "supabase" &&
+      (currentSlip.includes("supabase") || currentSlip.includes("public/"))
+    ) {
       try {
         console.log("🗑️ Deleting payment slip and updating status to unpaid...")
         await supabaseStorage.deletePaymentSlip(currentSlip, personInfo.id)
@@ -218,20 +222,55 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
     setUploadSuccess(false)
   }
 
-  // ใช้ URL ที่ถูกต้องสำหรับแสดงรูป
-  const getDisplayUrl = (url?: string) => {
-    if (!url) return "/placeholder.svg"
+  // ฟังก์ชันสำหรับแปลง path เป็น URL ที่ถูกต้องสำหรับแสดงรูป
+  const getDisplayUrl = (pathOrUrl?: string) => {
+    if (!pathOrUrl) return "/placeholder.svg"
 
-    if (dataSource === "mock" || url.startsWith("data:")) {
-      return url
+    console.log("🖼️ Getting display URL for:", pathOrUrl)
+
+    // ถ้าเป็น mock data (base64)
+    if (dataSource === "mock" || pathOrUrl.startsWith("data:")) {
+      return pathOrUrl
+    }
+
+    // ถ้าเป็น full URL อยู่แล้ว
+    if (pathOrUrl.startsWith("http")) {
+      console.log("✅ Already a full URL:", pathOrUrl)
+      return pathOrUrl
     }
 
     // ถ้าเป็น path ให้แปลงเป็น public URL
-    if (!url.startsWith("http")) {
-      return supabaseStorage.getPaymentSlipPreviewUrl(url) || "/placeholder.svg"
+    if (pathOrUrl.includes("public/")) {
+      const publicUrl = supabaseStorage.getPublicUrl(pathOrUrl)
+      console.log("✅ Converted path to URL:", pathOrUrl, "->", publicUrl)
+      return publicUrl
     }
 
-    return url
+    // fallback
+    console.warn("⚠️ Could not determine URL type, using as-is:", pathOrUrl)
+    return pathOrUrl
+  }
+
+  // ฟังก์ชันสำหรับตรวจสอบว่ารูปโหลดได้หรือไม่
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget
+    const originalSrc = img.src
+
+    console.warn("❌ Image failed to load:", originalSrc)
+
+    // ถ้าเป็น path ลองแปลงเป็น URL อีกครั้ง
+    if (currentSlip && !currentSlip.startsWith("http") && currentSlip.includes("public/")) {
+      const retryUrl = supabaseStorage.getPublicUrl(currentSlip)
+      console.log("🔄 Retrying with converted URL:", retryUrl)
+
+      if (img.src !== retryUrl) {
+        img.src = retryUrl
+        return
+      }
+    }
+
+    // ถ้ายังไม่ได้ ใช้ placeholder
+    img.src = "/placeholder.svg"
   }
 
   return (
@@ -239,6 +278,21 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       <div className="flex items-center justify-between">
         <Label>Payment Slip Upload</Label>
       </div>
+
+      {/* Debug Info */}
+      {currentSlip && (
+        <div className="text-xs text-gray-400 bg-gray-50 p-2 rounded">
+          <div>
+            <strong>Current Slip:</strong> {currentSlip}
+          </div>
+          <div>
+            <strong>Display URL:</strong> {getDisplayUrl(currentSlip)}
+          </div>
+          <div>
+            <strong>Data Source:</strong> {dataSource}
+          </div>
+        </div>
+      )}
 
       {/* Upload Status Messages */}
       {uploadError && (
@@ -278,11 +332,9 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
                 <img
                   src={getDisplayUrl(currentSlip) || "/placeholder.svg"}
                   alt="Payment slip"
-                  className="w-16 h-16 object-cover rounded"
-                  onError={(e) => {
-                    console.warn("Image failed to load:", currentSlip)
-                    e.currentTarget.src = "/placeholder.svg"
-                  }}
+                  className="w-16 h-16 object-cover rounded border"
+                  onError={handleImageError}
+                  onLoad={() => console.log("✅ Image loaded successfully:", getDisplayUrl(currentSlip))}
                 />
                 <div>
                   <p className="text-sm font-medium">Payment slip uploaded</p>
@@ -315,11 +367,18 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
                       <img
                         src={getDisplayUrl(currentSlip) || "/placeholder.svg"}
                         alt="Payment slip"
-                        className="max-w-full max-h-96 object-contain"
-                        onError={(e) => {
-                          e.currentTarget.src = "/placeholder.svg"
-                        }}
+                        className="max-w-full max-h-96 object-contain border rounded"
+                        onError={handleImageError}
+                        onLoad={() => console.log("✅ Preview image loaded successfully")}
                       />
+                    </div>
+                    <div className="text-xs text-gray-400 mt-2">
+                      <div>
+                        <strong>Source:</strong> {currentSlip}
+                      </div>
+                      <div>
+                        <strong>Display URL:</strong> {getDisplayUrl(currentSlip)}
+                      </div>
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -380,7 +439,10 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
                   <img
                     src={slip.url || "/placeholder.svg"}
                     alt="Previous slip"
-                    className="w-8 h-8 object-cover rounded"
+                    className="w-8 h-8 object-cover rounded border"
+                    onError={(e) => {
+                      e.currentTarget.src = "/placeholder.svg"
+                    }}
                   />
                   <span>{slip.originalName}</span>
                   <span>({new Date(slip.uploadedAt).toLocaleDateString()})</span>
