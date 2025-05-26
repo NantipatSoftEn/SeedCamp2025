@@ -18,63 +18,79 @@ export class SupabaseStorageService {
       }
 
       const bucketExists = buckets?.some((bucket) => bucket.id === this.bucketName)
-      console.log("📦 Buckets found:", bucketExists)
+      console.log("📦 Bucket exists:", bucketExists)
       return true
-      // if (bucketExists) {
-      //   console.log("✅ Bucket already exists:", this.bucketName)
-      //   return true
-      // }
-
-      // console.log("📁 Creating bucket:", this.bucketName)
-
-      // // สร้าง bucket ใหม่
-      // const { data: newBucket, error: createError } = await this.supabase.storage.createBucket(this.bucketName, {
-      //   public: true,
-      //   allowedMimeTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
-      //   fileSizeLimit: 10485760, // 10MB
-      // })
-
-      // if (createError) {
-      //   console.error("❌ Error creating bucket:", createError)
-      //   // ถ้าเป็น error ที่บอกว่า bucket มีอยู่แล้ว ให้ถือว่าสำเร็จ
-      //   if (createError.message.includes("already exists")) {
-      //     console.log("✅ Bucket already exists (from error message)")
-      //     return true
-      //   }
-      //   return false
-      // }
-
-      // console.log("✅ Bucket created successfully:", newBucket)
-      // return true
     } catch (error) {
       console.error("❌ Unexpected error in ensureBucketExists:", error)
       return false
     }
   }
 
+  // ตรวจสอบ authentication และ session
+  private async ensureAuthenticated() {
+    try {
+      // Get session first
+      const {
+        data: { session },
+        error: sessionError,
+      } = await this.supabase.auth.getSession()
+
+      if (sessionError) {
+        console.error("❌ Session error:", sessionError)
+        throw new Error(`Session error: ${sessionError.message}`)
+      }
+
+      if (!session) {
+        throw new Error("No active session. Please log in again.")
+      }
+
+      // Get user
+      const {
+        data: { user },
+        error: userError,
+      } = await this.supabase.auth.getUser()
+
+      if (userError) {
+        console.error("❌ User error:", userError)
+        throw new Error(`Authentication error: ${userError.message}`)
+      }
+
+      if (!user) {
+        throw new Error("No authenticated user found. Please log in.")
+      }
+
+      console.log("✅ Authentication verified:", {
+        userId: user.id,
+        email: user.email,
+        sessionExpiry: session.expires_at,
+      })
+
+      return { user, session }
+    } catch (error) {
+      console.error("❌ Authentication check failed:", error)
+      throw error
+    }
+  }
+
   // สร้างชื่อไฟล์ที่ unique และระบุตัวตน
-  private generateFileName(uuid:string, fileExtension: string): string {
-
-    return `${uuid}.${fileExtension}`
+  private generateFileName(uuid: string, fileExtension: string): string {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
+    return `${uuid}_${timestamp}.${fileExtension}`
   }
 
-  // ทำความสะอาดชื่อไฟล์
-  private cleanString(str: string): string {
-    return str
-      .replace(/[^a-zA-Z0-9ก-๙]/g, "") // เอาเฉพาะตัวอักษรและตัวเลข
-      .substring(0, 20) // จำกัดความยาว
-  }
-
-  // Upload ไฟล์ไปยัง Supabase Storage
+  // Upload ไฟล์ไปยัง Supabase Storage และบันทึกข้อมูลใน payment_slips table
   async uploadPaymentSlip(
     file: File,
     nickname: string,
     firstName: string,
     lastName: string,
-    uuid: string
-  ): Promise<{ url: string; path: string } | null> {
+    personId: string,
+  ): Promise<{ url: string; path: string; paymentSlipId: string } | null> {
     try {
       console.log("🔄 Starting payment slip upload process...")
+
+      // ตรวจสอบ authentication ก่อนทำอะไร
+      const { user } = await this.ensureAuthenticated()
 
       // ตรวจสอบและสร้าง bucket
       const bucketReady = await this.ensureBucketExists()
@@ -93,16 +109,17 @@ export class SupabaseStorageService {
       }
 
       // สร้างชื่อไฟล์
-      const fileExtension = file.name.split(".").pop()?.toLowerCase() || "jpg" 
-      const fileName = this.generateFileName(uuid, fileExtension)
-      const filePath =`public/seedcamp2025/${fileName}`;
+      const fileExtension = file.name.split(".").pop()?.toLowerCase() || "jpg"
+      const fileName = this.generateFileName(personId, fileExtension)
+      const filePath = `public/seedcamp2025/${fileName}`
 
       console.log("📝 Upload details:", {
         fileName,
         filePath,
         fileSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
         fileType: file.type,
-        person: { nickname, firstName, lastName },
+        person: { nickname, firstName, lastName, personId },
+        user: { id: user.id, email: user.email },
       })
 
       // Upload ไฟล์
@@ -123,14 +140,72 @@ export class SupabaseStorageService {
         throw new Error("Could not generate public URL for uploaded file")
       }
 
-      console.log("✅ Upload successful:", {
+      console.log("📤 File uploaded successfully, now saving to database...")
+
+      // บันทึกข้อมูลใน payment_slips table
+      const insertData = {
+        user_id: user.id,
+        person_id: personId,
+        path: filePath,
+        original_name: file.name,
+        file_size: file.size,
+        mime_type: file.type,
+      }
+
+      console.log("💾 Inserting payment slip record:", insertData)
+
+      const { data: paymentSlipData, error: dbError } = await this.supabase
+        .from("payment_slips")
+        .insert(insertData)
+        .select()
+        .single()
+
+      if (dbError) {
+        console.error("❌ Database insert error:", dbError)
+        console.error("❌ Insert data was:", insertData)
+
+        // ลบไฟล์ที่อัปโหลดแล้วถ้าบันทึกฐานข้อมูลล้มเหลว
+        await this.supabase.storage.from(this.bucketName).remove([filePath])
+
+        // Provide more specific error messages
+        if (dbError.message.includes("row-level security")) {
+          throw new Error(
+            `Database permission error: ${dbError.message}\n\nThis might be due to RLS policies. Please check your Supabase RLS configuration.`,
+          )
+        } else {
+          throw new Error(`Failed to save payment slip record: ${dbError.message}`)
+        }
+      }
+
+      console.log("✅ Payment slip record saved:", paymentSlipData)
+
+      // อัปเดต payment_status ใน seedcamp_people table เป็น "Paid"
+      const { error: updateError } = await this.supabase
+        .from("seedcamp_people")
+        .update({
+          payment_status: "paid",
+          payment_slip: urlData.publicUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", personId)
+
+      if (updateError) {
+        console.error("❌ Failed to update payment status:", updateError)
+        console.warn("⚠️ Payment slip uploaded but payment status not updated")
+      } else {
+        console.log("✅ Payment status updated to 'paid'")
+      }
+
+      console.log("✅ Upload completed successfully:", {
         path: data.path,
         url: urlData.publicUrl,
+        paymentSlipId: paymentSlipData.id,
       })
 
       return {
         url: urlData.publicUrl,
         path: data.path,
+        paymentSlipId: paymentSlipData.id,
       }
     } catch (error) {
       console.error("❌ Error uploading payment slip:", error)
@@ -138,26 +213,46 @@ export class SupabaseStorageService {
     }
   }
 
-  // ลบไฟล์เก่า (ถ้ามี)
-  async deletePaymentSlip(fileUrl: string): Promise<boolean> {
+  // ลบไฟล์เก่า (ถ้ามี) และข้อมูลใน database
+  async deletePaymentSlip(fileUrl: string, personId?: string): Promise<boolean> {
     try {
       if (!fileUrl || !fileUrl.includes(this.bucketName)) {
         console.log("🔍 Not a Supabase storage file, skipping deletion")
         return true // ไม่ใช่ไฟล์ใน storage ของเรา
       }
 
+      // ตรวจสอบ authentication
+      const { user } = await this.ensureAuthenticated()
+
       // แยกเอาเฉพาะ path ใน storage
       const urlParts = fileUrl.split("/")
-      const fileName = urlParts[urlParts.length - 1]
-
-      if (!fileName) {
-        console.warn("⚠️ Could not extract filename from URL:", fileUrl)
+      const pathIndex = urlParts.findIndex((part) => part === "payment-slips")
+      if (pathIndex === -1) {
+        console.warn("⚠️ Could not extract path from URL:", fileUrl)
         return false
       }
 
-      console.log("🗑️ Deleting payment slip:", fileName)
+      const filePath = urlParts.slice(pathIndex + 1).join("/")
 
-      const { error } = await this.supabase.storage.from(this.bucketName).remove([fileName])
+      console.log("🗑️ Deleting payment slip:", filePath)
+
+      // ลบข้อมูลจาก payment_slips table ก่อน
+      if (personId) {
+        const { error: dbError } = await this.supabase
+          .from("payment_slips")
+          .delete()
+          .eq("person_id", personId)
+          .eq("path", filePath)
+
+        if (dbError) {
+          console.warn("⚠️ Could not delete payment slip record:", dbError.message)
+        } else {
+          console.log("✅ Payment slip record deleted from database")
+        }
+      }
+
+      // ลบไฟล์จาก storage
+      const { error } = await this.supabase.storage.from(this.bucketName).remove([filePath])
 
       if (error) {
         console.warn("⚠️ Could not delete old file:", error.message)
@@ -172,67 +267,125 @@ export class SupabaseStorageService {
     }
   }
 
-  // ดึงรายการไฟล์ของบุคคลนั้น
-  async getPersonPaymentSlips(nickname: string, firstName: string, lastName: string): Promise<string[]> {
+  // ดึงข้อมูล payment slip ของบุคคลจาก database
+  async getPersonPaymentSlips(personId: string): Promise<
+    Array<{
+      id: string
+      url: string
+      path: string
+      originalName: string
+      uploadedAt: string
+      fileSize: number
+      mimeType: string
+    }>
+  > {
     try {
-      const cleanNickname = this.cleanString(nickname)
-      const cleanFirstName = this.cleanString(firstName)
-      const cleanLastName = this.cleanString(lastName)
+      console.log("🔍 Searching for payment slips for person:", personId)
 
-      const prefix = `${cleanNickname}_${cleanFirstName}_${cleanLastName}_`
+      // ตรวจสอบ authentication
+      const { user } = await this.ensureAuthenticated()
 
-      console.log("🔍 Searching for files with prefix:", prefix)
+      console.log("🔍 Searching for payment slips for person:", personId, "by user:", user.id)
 
-      const { data, error } = await this.supabase.storage.from(this.bucketName).list("", {
-        search: prefix,
-      })
+      const { data, error } = await this.supabase
+        .from("payment_slips")
+        .select("*")
+        .eq("person_id", personId)
+        .order("uploaded_at", { ascending: false })
 
       if (error) {
-        console.error("❌ Error listing files:", error)
+        console.error("❌ Error fetching payment slips:", error)
         return []
       }
 
-      const urls =
-        data?.map((file) => {
-          const { data: urlData } = this.supabase.storage.from(this.bucketName).getPublicUrl(file.name)
-          return urlData.publicUrl
+      const paymentSlips =
+        data?.map((slip) => {
+          const { data: urlData } = this.supabase.storage.from(this.bucketName).getPublicUrl(slip.path)
+          return {
+            id: slip.id,
+            url: urlData.publicUrl,
+            path: slip.path,
+            originalName: slip.original_name,
+            uploadedAt: slip.uploaded_at,
+            fileSize: slip.file_size,
+            mimeType: slip.mime_type,
+          }
         }) || []
 
-      console.log("📁 Found files:", urls)
-      return urls
+      console.log("📁 Found payment slips:", paymentSlips)
+      return paymentSlips
     } catch (error) {
       console.error("❌ Error getting person payment slips:", error)
       return []
     }
   }
 
-  // ทดสอบการเชื่อมต่อ Storage
+  // ดึง URL ที่ถูกต้องจาก path
+  getPublicUrl(path: string): string {
+    const { data } = this.supabase.storage.from(this.bucketName).getPublicUrl(path)
+    return data.publicUrl
+  }
+
+  // ทดสอบการเชื่อมต่อ Storage และ RLS
   async testConnection(): Promise<{ success: boolean; message: string }> {
     try {
-      console.log("🧪 Testing Supabase Storage connection...")
+      console.log("🧪 Testing Supabase Storage connection and RLS...")
 
-      // ทดสอบการ list buckets
-      const { data: buckets, error } = await this.supabase.storage.listBuckets()
+      // Test 1: Authentication
+      const { user } = await this.ensureAuthenticated()
 
-      if (error) {
+      // Test 2: Storage connection
+      const { data: buckets, error: storageError } = await this.supabase.storage.listBuckets()
+
+      if (storageError) {
         return {
           success: false,
-          message: `Storage connection failed: ${error.message}`,
+          message: `Storage connection failed: ${storageError.message}`,
         }
       }
 
       const bucketExists = buckets?.some((bucket) => bucket.id === this.bucketName)
 
+      // Test 3: RLS policies by trying to insert/delete a test record
+      const testRecord = {
+        user_id: user.id,
+        person_id: "test-person-id",
+        path: "test/path.jpg",
+        original_name: "test.jpg",
+        file_size: 1024,
+        mime_type: "image/jpeg",
+      }
+
+      const { data: insertData, error: insertError } = await this.supabase
+        .from("payment_slips")
+        .insert(testRecord)
+        .select()
+        .single()
+
+      if (insertError) {
+        return {
+          success: false,
+          message: `RLS test failed - cannot insert: ${insertError.message}`,
+        }
+      }
+
+      // Clean up test record
+      const { error: deleteError } = await this.supabase.from("payment_slips").delete().eq("id", insertData.id)
+
+      if (deleteError) {
+        console.warn("Could not clean up test record:", deleteError.message)
+      }
+
       return {
         success: true,
-        message: `Storage connection successful. Bucket '${this.bucketName}' ${
+        message: `All tests passed! Storage connected, bucket '${this.bucketName}' ${
           bucketExists ? "exists" : "will be created when needed"
-        }. Found ${buckets?.length || 0} total buckets.`,
+        }, RLS policies working correctly for user: ${user.email}`,
       }
     } catch (error) {
       return {
         success: false,
-        message: `Storage test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        message: `Test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
       }
     }
   }

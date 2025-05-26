@@ -92,7 +92,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
       newErrors.phone = "Invalid phone format"
     }
     if (formData.payment_amount <= 0) {
-      newErrors.payment_amount = Infinity
+      newErrors.payment_amount = Number.POSITIVE_INFINITY
     }
 
     setErrors(newErrors)
@@ -354,8 +354,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
                 {dataSource === "supabase" && (
                   <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">📁 Supabase Storage</span>
                 )}
-              </h3>Payment slip uploaded
-
+              </h3>
 
               <PaymentSlipUpload
                 currentSlip={formData.payment_slip}
@@ -364,7 +363,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
                   nickname: formData.nick_name,
                   firstName: formData.first_name,
                   lastName: formData.last_name,
-                  id: formData.id
+                  id: formData.id,
                 }}
               />
               {dataSource === "supabase" && (

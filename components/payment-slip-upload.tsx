@@ -3,13 +3,12 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
-import { Upload, X, Eye, Loader2, CheckCircle, AlertCircle, TestTube } from "lucide-react"
+import { Upload, X, Eye, Loader2, TestTube } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Dialog,
   DialogContent,
@@ -21,6 +20,8 @@ import {
 
 import { supabaseStorage } from "@/lib/supabase-storage"
 import { useDataSource } from "@/contexts/data-source-context"
+import { useAuth } from "@/contexts/auth-context"
+import { CustomAlert, CustomAlertDescription } from "./custom-alert"
 
 interface PaymentSlipUploadProps {
   currentSlip?: string
@@ -28,7 +29,7 @@ interface PaymentSlipUploadProps {
   personInfo: {
     nickname: string
     firstName: string
-    lastName: string,
+    lastName: string
     id: string
   }
 }
@@ -42,15 +43,26 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const [storageTest, setStorageTest] = useState<{ success: boolean; message: string } | null>(null)
   const [testing, setTesting] = useState(false)
+  const [paymentSlips, setPaymentSlips] = useState<
+    Array<{
+      id: string
+      url: string
+      path: string
+      originalName: string
+      uploadedAt: string
+    }>
+  >([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { dataSource } = useDataSource()
+  const { user } = useAuth() // Add this line
 
-  // ทดสอบ Storage connection เมื่อ component mount
+  // ทดสอบ Storage connection และโหลดข้อมูล payment slips เมื่อ component mount
   useEffect(() => {
     if (dataSource === "supabase") {
       testStorageConnection()
+      loadPaymentSlips()
     }
-  }, [dataSource])
+  }, [dataSource, personInfo.id])
 
   const testStorageConnection = async () => {
     setTesting(true)
@@ -65,6 +77,22 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       })
     } finally {
       setTesting(false)
+    }
+  }
+
+  const loadPaymentSlips = async () => {
+    if (dataSource === "supabase" && personInfo.id) {
+      try {
+        const slips = await supabaseStorage.getPersonPaymentSlips(personInfo.id)
+        setPaymentSlips(slips)
+
+        // ถ้ามี payment slip ล่าสุด ให้ใช้เป็น current slip
+        if (slips.length > 0 && !currentSlip) {
+          onSlipChange(slips[0].url)
+        }
+      } catch (error) {
+        console.error("Failed to load payment slips:", error)
+      }
     }
   }
 
@@ -122,7 +150,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       return
     }
 
-    // Supabase mode - upload to storage
+    // Supabase mode - upload to storage และบันทึกใน database
     setUploading(true)
     setUploadProgress(0)
 
@@ -141,7 +169,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       // Delete old file if exists
       if (currentSlip && currentSlip.includes("supabase")) {
         console.log("🗑️ Deleting old file before upload...")
-        await supabaseStorage.deletePaymentSlip(currentSlip)
+        await supabaseStorage.deletePaymentSlip(currentSlip, personInfo.id)
       }
 
       // Upload new file
@@ -151,7 +179,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
         personInfo.nickname,
         personInfo.firstName,
         personInfo.lastName,
-        personInfo.id
+        personInfo.id,
       )
 
       clearInterval(progressInterval)
@@ -161,20 +189,28 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
         onSlipChange(result.url)
         setUploadSuccess(true)
         setTimeout(() => setUploadSuccess(false), 3000)
+
+        // โหลดข้อมูล payment slips ใหม่
+        await loadPaymentSlips()
+
         console.log("✅ Payment slip uploaded successfully:", result)
+        console.log("💰 Payment status automatically updated to 'Paid'")
       } else {
         throw new Error("Upload failed - no result returned")
       }
     } catch (error) {
       console.error("❌ Upload failed:", error)
       const errorMessage = error instanceof Error ? error.message : "Upload failed"
-      setUploadError(errorMessage)
 
-      // ถ้าเป็น error เกี่ยวกับ bucket ให้แนะนำการแก้ไข
-      if (errorMessage.includes("bucket")) {
+      // Handle specific authentication errors
+      if (errorMessage.includes("Authentication required") || errorMessage.includes("logged in")) {
+        setUploadError(`${errorMessage}\n\nPlease make sure you are logged in and try again.`)
+      } else if (errorMessage.includes("bucket")) {
         setUploadError(
           `${errorMessage}\n\nTip: Try clicking the "Test Storage" button to check your Supabase Storage setup.`,
         )
+      } else {
+        setUploadError(errorMessage)
       }
     } finally {
       setUploading(false)
@@ -185,7 +221,8 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
   const removeSlip = async () => {
     if (currentSlip && dataSource === "supabase" && currentSlip.includes("supabase")) {
       try {
-        await supabaseStorage.deletePaymentSlip(currentSlip)
+        await supabaseStorage.deletePaymentSlip(currentSlip, personInfo.id)
+        await loadPaymentSlips() // โหลดข้อมูลใหม่
       } catch (error) {
         console.warn("Could not delete file from storage:", error)
       }
@@ -197,6 +234,22 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
     }
     setUploadError(null)
     setUploadSuccess(false)
+  }
+
+  // ใช้ URL ที่ถูกต้องสำหรับแสดงรูป
+  const getDisplayUrl = (url?: string) => {
+    if (!url) return "/placeholder.svg"
+
+    if (dataSource === "mock" || url.startsWith("data:")) {
+      return url
+    }
+
+    // ถ้าเป็น Supabase URL ที่มี path ให้ใช้ getPublicUrl
+    if (url.includes("supabase") && url.includes("payment-slips")) {
+      return url
+    }
+
+    return url
   }
 
   return (
@@ -213,34 +266,25 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
 
       {/* Storage Test Result */}
       {dataSource === "supabase" && storageTest && (
-        <Alert variant={storageTest.success ? "default" : "destructive"}>
-          {storageTest.success ? (
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          ) : (
-            <AlertCircle className="h-4 w-4" />
-          )}
-          <AlertDescription className={storageTest.success ? "text-green-800" : ""}>
-            {storageTest.message}
-          </AlertDescription>
-        </Alert>
+        <CustomAlert variant={storageTest.success ? "success" : "destructive"}>
+          <CustomAlertDescription>{storageTest.message}</CustomAlertDescription>
+        </CustomAlert>
       )}
 
       {/* Upload Status Messages */}
       {uploadError && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="whitespace-pre-line">{uploadError}</AlertDescription>
-        </Alert>
+        <CustomAlert variant="destructive">
+          <CustomAlertDescription className="whitespace-pre-line">{uploadError}</CustomAlertDescription>
+        </CustomAlert>
       )}
 
       {uploadSuccess && (
-        <Alert className="border-green-200 bg-green-50">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-800">
-            Payment slip uploaded successfully!
-            {dataSource === "supabase" && " File saved to Supabase Storage."}
-          </AlertDescription>
-        </Alert>
+        <CustomAlert variant="success">
+          <CustomAlertDescription>
+            Payment slip uploaded successfully! Payment status updated to "Paid".
+            {dataSource === "supabase" && " File saved to Supabase Storage and database."}
+          </CustomAlertDescription>
+        </CustomAlert>
       )}
 
       {/* Upload Progress */}
@@ -252,7 +296,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
           </div>
           <Progress value={uploadProgress} className="h-2" />
           <p className="text-xs text-gray-500">
-            Uploading as: {personInfo.nickname}_{personInfo.firstName}_{personInfo.lastName}_[timestamp]
+            Uploading as: {personInfo.nickname}_{personInfo.firstName}_{personInfo.lastName}
           </p>
         </div>
       )}
@@ -263,18 +307,25 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <img
-                  src={currentSlip || "/placeholder.svg"}
+                  src={getDisplayUrl(currentSlip) || "/placeholder.svg"}
                   alt="Payment slip"
                   className="w-16 h-16 object-cover rounded"
+                  onError={(e) => {
+                    console.warn("Image failed to load:", currentSlip)
+                    e.currentTarget.src = "/placeholder.svg"
+                  }}
                 />
                 <div>
                   <p className="text-sm font-medium">Payment slip uploaded</p>
                   <p className="text-xs text-gray-500">
-                    {dataSource === "supabase" ? "Stored in Supabase Storage" : "Mock data"}
+                    {dataSource === "supabase" ? "Stored in Supabase Storage & Database" : "Mock data"}
                   </p>
                   <p className="text-xs text-gray-400">
                     Owner: {personInfo.nickname} ({personInfo.firstName} {personInfo.lastName})
                   </p>
+                  {dataSource === "supabase" && paymentSlips.length > 0 && (
+                    <p className="text-xs text-blue-600">📁 {paymentSlips.length} file(s) in database</p>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2">
@@ -293,9 +344,12 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
                     </DialogHeader>
                     <div className="flex justify-center">
                       <img
-                        src={currentSlip || "/placeholder.svg"}
+                        src={getDisplayUrl(currentSlip) || "/placeholder.svg"}
                         alt="Payment slip"
                         className="max-w-full max-h-96 object-contain"
+                        onError={(e) => {
+                          e.currentTarget.src = "/placeholder.svg"
+                        }}
                       />
                     </div>
                   </DialogContent>
@@ -332,7 +386,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
           <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
           <p className="text-xs text-blue-600 mt-2">
             {dataSource === "supabase"
-              ? `Will be saved as: ${personInfo.nickname}_${personInfo.firstName}_${personInfo.lastName}_[timestamp]`
+              ? `Will be saved to database and payment status will be updated to "Paid"`
               : "Using mock data mode"}
           </p>
           {dataSource === "supabase" && storageTest && !storageTest.success && (
@@ -340,6 +394,36 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
           )}
         </div>
       ) : null}
+
+      {dataSource === "supabase" && !user && (
+        <CustomAlert variant="destructive" className="mt-2">
+          <CustomAlertDescription>
+            You must be logged in to upload payment slips to Supabase Storage.
+          </CustomAlertDescription>
+        </CustomAlert>
+      )}
+
+      {/* Payment Slips History (for Supabase mode) */}
+      {dataSource === "supabase" && paymentSlips.length > 1 && (
+        <Card>
+          <CardContent className="p-4">
+            <h4 className="text-sm font-medium mb-2">Payment Slip History</h4>
+            <div className="space-y-2">
+              {paymentSlips.slice(1).map((slip) => (
+                <div key={slip.id} className="flex items-center gap-2 text-xs text-gray-500">
+                  <img
+                    src={slip.url || "/placeholder.svg"}
+                    alt="Previous slip"
+                    className="w-8 h-8 object-cover rounded"
+                  />
+                  <span>{slip.originalName}</span>
+                  <span>({new Date(slip.uploadedAt).toLocaleDateString()})</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

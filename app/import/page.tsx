@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Progress } from "@/components/ui/progress"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import type { Person } from "@/types/person"
+import { ProtectedRoute } from "@/components/protected-route"
 
 type ImportStatus = "idle" | "uploading" | "processing" | "success" | "error"
 
@@ -147,104 +148,106 @@ export default function ImportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Import People Data</CardTitle>
-          <CardDescription>Upload a CSV file to import people data into the system</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {status === "idle" && (
-            <div
-              className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => document.getElementById("file-upload")?.click()}
-            >
-              <input id="file-upload" type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
-              <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-600 mb-1">Click to upload or drag and drop</p>
-              <p className="text-xs text-gray-500">CSV files only</p>
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Import People Data</CardTitle>
+            <CardDescription>Upload a CSV file to import people data into the system</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {status === "idle" && (
+              <div
+                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => document.getElementById("file-upload")?.click()}
+              >
+                <input id="file-upload" type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
+                <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-600 mb-1">Click to upload or drag and drop</p>
+                <p className="text-xs text-gray-500">CSV files only</p>
 
-              {file && (
-                <div className="mt-4 p-2 bg-gray-100 rounded text-left">
-                  <p className="text-sm font-medium truncate">{file.name}</p>
-                  <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(2)} KB</p>
+                {file && (
+                  <div className="mt-4 p-2 bg-gray-100 rounded text-left">
+                    <p className="text-sm font-medium truncate">{file.name}</p>
+                    <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(2)} KB</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(status === "uploading" || status === "processing") && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <p className="text-sm font-medium">{message}</p>
                 </div>
-              )}
-            </div>
-          )}
-
-          {(status === "uploading" || status === "processing") && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <p className="text-sm font-medium">{message}</p>
+                <Progress value={progress} className="h-2" />
               </div>
-              <Progress value={progress} className="h-2" />
-            </div>
-          )}
+            )}
 
-          {status === "success" && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-green-600">
-                <CheckCircle className="h-5 w-5" />
-                <p className="font-medium">Import completed successfully</p>
-              </div>
-              <div className="bg-gray-100 p-3 rounded-md">
-                <p className="text-sm">{message}</p>
-                <div className="grid grid-cols-3 gap-2 mt-2">
-                  <div className="text-center">
-                    <p className="text-xs text-gray-500">Total</p>
-                    <p className="font-medium">{stats.total}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-gray-500">Imported</p>
-                    <p className="font-medium text-green-600">{stats.success}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-gray-500">Errors</p>
-                    <p className="font-medium text-red-600">{stats.error}</p>
+            {status === "success" && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircle className="h-5 w-5" />
+                  <p className="font-medium">Import completed successfully</p>
+                </div>
+                <div className="bg-gray-100 p-3 rounded-md">
+                  <p className="text-sm">{message}</p>
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500">Total</p>
+                      <p className="font-medium">{stats.total}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500">Imported</p>
+                      <p className="font-medium text-green-600">{stats.success}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500">Errors</p>
+                      <p className="font-medium text-red-600">{stats.error}</p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {status === "error" && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-red-600">
-                <AlertCircle className="h-5 w-5" />
-                <p className="font-medium">Import failed</p>
+            {status === "error" && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-red-600">
+                  <AlertCircle className="h-5 w-5" />
+                  <p className="font-medium">Import failed</p>
+                </div>
+                <p className="text-sm bg-red-50 p-3 rounded-md">{message}</p>
               </div>
-              <p className="text-sm bg-red-50 p-3 rounded-md">{message}</p>
-            </div>
-          )}
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          {status === "idle" && (
-            <>
-              <Button variant="outline" onClick={handleGoToDashboard}>
-                Cancel
-              </Button>
-              <Button onClick={handleImport} disabled={!file}>
-                Import Data
-              </Button>
-            </>
-          )}
+            )}
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            {status === "idle" && (
+              <>
+                <Button variant="outline" onClick={handleGoToDashboard}>
+                  Cancel
+                </Button>
+                <Button onClick={handleImport} disabled={!file}>
+                  Import Data
+                </Button>
+              </>
+            )}
 
-          {(status === "uploading" || status === "processing") && (
-            <Button disabled className="w-full">
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Processing...
-            </Button>
-          )}
+            {(status === "uploading" || status === "processing") && (
+              <Button disabled className="w-full">
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Processing...
+              </Button>
+            )}
 
-          {(status === "success" || status === "error") && (
-            <Button onClick={handleGoToDashboard} className="w-full">
-              Go to Dashboard
-            </Button>
-          )}
-        </CardFooter>
-      </Card>
-    </div>
+            {(status === "success" || status === "error") && (
+              <Button onClick={handleGoToDashboard} className="w-full">
+                Go to Dashboard
+              </Button>
+            )}
+          </CardFooter>
+        </Card>
+      </div>
+    </ProtectedRoute>
   )
 }
