@@ -179,12 +179,12 @@ export class SupabaseStorageService {
 
       console.log("✅ Payment slip record saved:", paymentSlipData)
 
-      // อัปเดต payment_status ใน seedcamp_people table เป็น "Paid"
+      // อัปเดต payment_slip เป็น path ของ image และ payment_status เป็น true ใน seedcamp_people table
       const { error: updateError } = await this.supabase
         .from("seedcamp_people")
         .update({
-          payment_status: "paid",
-          payment_slip: urlData.publicUrl,
+          payment_status: "paid", // เปลี่ยนเป็น paid
+          payment_slip: filePath, // เก็บ path ของ image แทน public URL
           updated_at: new Date().toISOString(),
         })
         .eq("id", personId)
@@ -193,7 +193,7 @@ export class SupabaseStorageService {
         console.error("❌ Failed to update payment status:", updateError)
         console.warn("⚠️ Payment slip uploaded but payment status not updated")
       } else {
-        console.log("✅ Payment status updated to 'paid'")
+        console.log("✅ Payment status updated to 'paid' and payment_slip path saved:", filePath)
       }
 
       console.log("✅ Upload completed successfully:", {
@@ -248,6 +248,22 @@ export class SupabaseStorageService {
           console.warn("⚠️ Could not delete payment slip record:", dbError.message)
         } else {
           console.log("✅ Payment slip record deleted from database")
+        }
+
+        // อัปเดต seedcamp_people table - เซ็ต payment_status เป็น unpaid และลบ payment_slip
+        const { error: updateError } = await this.supabase
+          .from("seedcamp_people")
+          .update({
+            payment_status: "unpaid", // เปลี่ยนเป็น unpaid
+            payment_slip: null, // ลบ payment_slip path
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", personId)
+
+        if (updateError) {
+          console.error("❌ Failed to update payment status after deletion:", updateError)
+        } else {
+          console.log("✅ Payment status updated to 'unpaid' and payment_slip cleared")
         }
       }
 
@@ -320,10 +336,23 @@ export class SupabaseStorageService {
     }
   }
 
-  // ดึง URL ที่ถูกต้องจาก path
+  // ดึง URL ที่ถูกต้องจาก path สำหรับแสดงรูป preview
   getPublicUrl(path: string): string {
     const { data } = this.supabase.storage.from(this.bucketName).getPublicUrl(path)
     return data.publicUrl
+  }
+
+  // ฟังก์ชันสำหรับแปลง payment_slip path เป็น public URL สำหรับแสดงรูป
+  getPaymentSlipPreviewUrl(paymentSlipPath: string | null): string | null {
+    if (!paymentSlipPath) return null
+
+    // ถ้า path เป็น full URL อยู่แล้ว ให้ return ตรงๆ
+    if (paymentSlipPath.startsWith("http")) {
+      return paymentSlipPath
+    }
+
+    // ถ้าเป็น path ให้แปลงเป็น public URL
+    return this.getPublicUrl(paymentSlipPath)
   }
 }
 

@@ -167,6 +167,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       setUploadProgress(100)
 
       if (result) {
+        // ใช้ public URL สำหรับแสดงรูป
         onSlipChange(result.url)
         setUploadSuccess(true)
         setTimeout(() => setUploadSuccess(false), 3000)
@@ -175,7 +176,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
         await loadPaymentSlips()
 
         console.log("✅ Payment slip uploaded successfully:", result)
-        console.log("💰 Payment status automatically updated to 'Paid'")
+        console.log("💰 Payment status updated to 'paid' and payment_slip path saved")
       } else {
         throw new Error("Upload failed - no result returned")
       }
@@ -200,8 +201,10 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
   const removeSlip = async () => {
     if (currentSlip && dataSource === "supabase" && currentSlip.includes("supabase")) {
       try {
+        console.log("🗑️ Deleting payment slip and updating status to unpaid...")
         await supabaseStorage.deletePaymentSlip(currentSlip, personInfo.id)
         await loadPaymentSlips() // โหลดข้อมูลใหม่
+        console.log("✅ Payment slip deleted and status updated to unpaid")
       } catch (error) {
         console.warn("Could not delete file from storage:", error)
       }
@@ -223,9 +226,9 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       return url
     }
 
-    // ถ้าเป็น Supabase URL ที่มี path ให้ใช้ getPublicUrl
-    if (url.includes("supabase") && url.includes("payment-slips")) {
-      return url
+    // ถ้าเป็น path ให้แปลงเป็น public URL
+    if (!url.startsWith("http")) {
+      return supabaseStorage.getPaymentSlipPreviewUrl(url) || "/placeholder.svg"
     }
 
     return url
@@ -247,7 +250,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       {uploadSuccess && (
         <CustomAlert variant="success">
           <CustomAlertDescription>
-            Payment slip uploaded successfully! Payment status updated to "Paid".
+            Payment slip uploaded successfully! Payment status updated to "Paid" and slip path saved.
             {dataSource === "supabase" && " File saved to Supabase Storage and database."}
           </CustomAlertDescription>
         </CustomAlert>
@@ -352,7 +355,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
           <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
           <p className="text-xs text-blue-600 mt-2">
             {dataSource === "supabase"
-              ? `Will be saved to database with person_id: ${personInfo.id}`
+              ? `Will save path to payment_slip field for person_id: ${personInfo.id}`
               : "Using mock data mode"}
           </p>
         </div>
