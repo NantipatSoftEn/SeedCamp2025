@@ -14,6 +14,7 @@ import { EditDebugPanel } from "@/components/edit-debug-panel"
 import { StorageTestButton } from "@/components/storage-test-button"
 import { ProtectedRoute } from "@/components/protected-route"
 import { UserMenu } from "@/components/user-menu"
+import { AuthTestButton } from "@/components/auth-test-button"
 
 export default function Page() {
   const [currentView, setCurrentView] = useState<"people" | "analytics">("people")
@@ -54,6 +55,7 @@ export default function Page() {
                 </Button>
                 <SupabaseTestButton />
                 <StorageTestButton />
+                <AuthTestButton />
                 <DataSourceToggle />
                 <UserMenu />
               </div>

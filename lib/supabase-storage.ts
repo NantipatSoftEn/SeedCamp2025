@@ -96,19 +96,28 @@ export class SupabaseStorageService {
         throw new Error("Could not generate public URL for uploaded file")
       }
 
-      // Get current user
+      // Get current user - make this more robust
       const {
         data: { user },
+        error: userError,
       } = await this.supabase.auth.getUser()
-      if (!user) {
-        console.warn("⚠️ No authenticated user found, proceeding without user_id")
+
+      if (userError) {
+        console.error("❌ Error getting user:", userError)
+        throw new Error("Authentication required to upload payment slips")
       }
 
-      // บันทึกข้อมูลใน payment_slips table
+      if (!user) {
+        throw new Error("You must be logged in to upload payment slips")
+      }
+
+      console.log("👤 Current user:", user.id, user.email)
+
+      // บันทึกข้อมูลใน payment_slips table with proper user_id
       const { data: paymentSlipData, error: dbError } = await this.supabase
         .from("payment_slips")
         .insert({
-          user_id: user?.id || null,
+          user_id: user.id, // ส่ง user_id ที่ได้จาก auth
           person_id: personId,
           path: filePath,
           original_name: file.name,
@@ -180,13 +189,24 @@ export class SupabaseStorageService {
 
       console.log("🗑️ Deleting payment slip:", filePath)
 
-      // ลบข้อมูลจาก payment_slips table ก่อน
+      // Get current user for deletion
+      const {
+        data: { user },
+      } = await this.supabase.auth.getUser()
+
+      if (!user) {
+        console.warn("⚠️ No authenticated user for deletion")
+        return false
+      }
+
+      // ลบข้อมูลจาก payment_slips table ก่อน (with user check)
       if (personId) {
         const { error: dbError } = await this.supabase
           .from("payment_slips")
           .delete()
           .eq("person_id", personId)
           .eq("path", filePath)
+          .eq("user_id", user.id) // เพิ่ม user_id check เพื่อความปลอดภัย
 
         if (dbError) {
           console.warn("⚠️ Could not delete payment slip record:", dbError.message)
@@ -226,10 +246,24 @@ export class SupabaseStorageService {
     try {
       console.log("🔍 Searching for payment slips for person:", personId)
 
+      // Get current user for fetching payment slips
+      const {
+        data: { user },
+      } = await this.supabase.auth.getUser()
+
+      if (!user) {
+        console.warn("⚠️ No authenticated user, cannot fetch payment slips")
+        return []
+      }
+
+      console.log("🔍 Searching for payment slips for person:", personId, "by user:", user.id)
+
       const { data, error } = await this.supabase
         .from("payment_slips")
         .select("*")
         .eq("person_id", personId)
+        // Note: ไม่จำเป็นต้องกรอง user_id ที่นี่ถ้าต้องการให้ admin เห็นทุกไฟล์
+        // หรือเพิ่ม .eq("user_id", user.id) ถ้าต้องการให้เห็นเฉพาะไฟล์ของตัวเอง
         .order("uploaded_at", { ascending: false })
 
       if (error) {

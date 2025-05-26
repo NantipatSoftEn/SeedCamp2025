@@ -21,6 +21,7 @@ import {
 
 import { supabaseStorage } from "@/lib/supabase-storage"
 import { useDataSource } from "@/contexts/data-source-context"
+import { useAuth } from "@/contexts/auth-context"
 
 interface PaymentSlipUploadProps {
   currentSlip?: string
@@ -53,6 +54,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
   >([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { dataSource } = useDataSource()
+  const { user } = useAuth() // Add this line
 
   // ทดสอบ Storage connection และโหลดข้อมูล payment slips เมื่อ component mount
   useEffect(() => {
@@ -199,13 +201,16 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
     } catch (error) {
       console.error("❌ Upload failed:", error)
       const errorMessage = error instanceof Error ? error.message : "Upload failed"
-      setUploadError(errorMessage)
 
-      // ถ้าเป็น error เกี่ยวกับ bucket ให้แนะนำการแก้ไข
-      if (errorMessage.includes("bucket")) {
+      // Handle specific authentication errors
+      if (errorMessage.includes("Authentication required") || errorMessage.includes("logged in")) {
+        setUploadError(`${errorMessage}\n\nPlease make sure you are logged in and try again.`)
+      } else if (errorMessage.includes("bucket")) {
         setUploadError(
           `${errorMessage}\n\nTip: Try clicking the "Test Storage" button to check your Supabase Storage setup.`,
         )
+      } else {
+        setUploadError(errorMessage)
       }
     } finally {
       setUploading(false)
@@ -398,6 +403,13 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
           )}
         </div>
       ) : null}
+
+      {dataSource === "supabase" && !user && (
+        <Alert variant="destructive" className="mt-2">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>You must be logged in to upload payment slips to Supabase Storage.</AlertDescription>
+        </Alert>
+      )}
 
       {/* Payment Slips History (for Supabase mode) */}
       {dataSource === "supabase" && paymentSlips.length > 1 && (
