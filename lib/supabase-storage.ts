@@ -179,12 +179,12 @@ export class SupabaseStorageService {
 
       console.log("✅ Payment slip record saved:", paymentSlipData)
 
-      // อัปเดต payment_slip เป็น path ของ image และ payment_status เป็น true ใน seedcamp_people table
+      // อัปเดต payment_slip เป็น path ของ image (ไม่ใช่ public URL) และ payment_status เป็น paid ใน seedcamp_people table
       const { error: updateError } = await this.supabase
         .from("seedcamp_people")
         .update({
           payment_status: "paid", // เปลี่ยนเป็น paid
-          payment_slip: filePath, // เก็บ path ของ image แทน public URL
+          payment_slip: filePath, // เก็บเฉพาะ path ของ image (เช่น "public/seedcamp2025/filename.jpg")
           updated_at: new Date().toISOString(),
         })
         .eq("id", personId)
@@ -200,6 +200,7 @@ export class SupabaseStorageService {
         path: data.path,
         url: urlData.publicUrl,
         paymentSlipId: paymentSlipData.id,
+        savedPath: filePath, // path ที่เก็บใน database
       })
 
       return {
@@ -216,23 +217,24 @@ export class SupabaseStorageService {
   // ลบไฟล์เก่า (ถ้ามี) และข้อมูลใน database
   async deletePaymentSlip(fileUrl: string, personId?: string): Promise<boolean> {
     try {
-      if (!fileUrl || !fileUrl.includes(this.bucketName)) {
-        console.log("🔍 Not a Supabase storage file, skipping deletion")
-        return true // ไม่ใช่ไฟล์ใน storage ของเรา
-      }
-
       // ตรวจสอบ authentication
       const { user } = await this.ensureAuthenticated()
 
-      // แยกเอาเฉพาะ path ใน storage
-      const urlParts = fileUrl.split("/")
-      const pathIndex = urlParts.findIndex((part) => part === "payment-slips")
-      if (pathIndex === -1) {
-        console.warn("⚠️ Could not extract path from URL:", fileUrl)
-        return false
-      }
+      let filePath: string
 
-      const filePath = urlParts.slice(pathIndex + 1).join("/")
+      // ถ้าเป็น full URL ให้แยกเอา path
+      if (fileUrl.includes("supabase.co")) {
+        const urlParts = fileUrl.split("/")
+        const pathIndex = urlParts.findIndex((part) => part === "payment-slips")
+        if (pathIndex === -1) {
+          console.warn("⚠️ Could not extract path from URL:", fileUrl)
+          return false
+        }
+        filePath = urlParts.slice(pathIndex + 1).join("/")
+      } else {
+        // ถ้าเป็น path อยู่แล้ว
+        filePath = fileUrl
+      }
 
       console.log("🗑️ Deleting payment slip:", filePath)
 
