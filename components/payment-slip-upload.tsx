@@ -28,7 +28,8 @@ interface PaymentSlipUploadProps {
   personInfo: {
     nickname: string
     firstName: string
-    lastName: string
+    lastName: string,
+    id: string
   }
 }
 
@@ -150,6 +151,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
         personInfo.nickname,
         personInfo.firstName,
         personInfo.lastName,
+        personInfo.id
       )
 
       clearInterval(progressInterval)
@@ -321,7 +323,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
             accept="image/*"
             onChange={handleChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            disabled={uploading || (dataSource === "supabase" && storageTest && !storageTest.success)}
+            disabled={uploading || (dataSource === "supabase" && !!storageTest && !storageTest.success)}
           />
           <Upload className="mx-auto h-12 w-12 text-gray-400" />
           <p className="mt-2 text-sm text-gray-600">

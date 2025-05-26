@@ -19,6 +19,7 @@ export interface Person {
 
 // Add form data type for editing
 export interface PersonFormData {
+  id:string
   nick_name: string
   first_name: string
   last_name: string

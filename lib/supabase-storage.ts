@@ -18,33 +18,34 @@ export class SupabaseStorageService {
       }
 
       const bucketExists = buckets?.some((bucket) => bucket.id === this.bucketName)
-
-      if (bucketExists) {
-        console.log("✅ Bucket already exists:", this.bucketName)
-        return true
-      }
-
-      console.log("📁 Creating bucket:", this.bucketName)
-
-      // สร้าง bucket ใหม่
-      const { data: newBucket, error: createError } = await this.supabase.storage.createBucket(this.bucketName, {
-        public: true,
-        allowedMimeTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
-        fileSizeLimit: 10485760, // 10MB
-      })
-
-      if (createError) {
-        console.error("❌ Error creating bucket:", createError)
-        // ถ้าเป็น error ที่บอกว่า bucket มีอยู่แล้ว ให้ถือว่าสำเร็จ
-        if (createError.message.includes("already exists")) {
-          console.log("✅ Bucket already exists (from error message)")
-          return true
-        }
-        return false
-      }
-
-      console.log("✅ Bucket created successfully:", newBucket)
+      console.log("📦 Buckets found:", bucketExists)
       return true
+      // if (bucketExists) {
+      //   console.log("✅ Bucket already exists:", this.bucketName)
+      //   return true
+      // }
+
+      // console.log("📁 Creating bucket:", this.bucketName)
+
+      // // สร้าง bucket ใหม่
+      // const { data: newBucket, error: createError } = await this.supabase.storage.createBucket(this.bucketName, {
+      //   public: true,
+      //   allowedMimeTypes: ["image/jpeg", "image/png", "image/gif", "image/webp"],
+      //   fileSizeLimit: 10485760, // 10MB
+      // })
+
+      // if (createError) {
+      //   console.error("❌ Error creating bucket:", createError)
+      //   // ถ้าเป็น error ที่บอกว่า bucket มีอยู่แล้ว ให้ถือว่าสำเร็จ
+      //   if (createError.message.includes("already exists")) {
+      //     console.log("✅ Bucket already exists (from error message)")
+      //     return true
+      //   }
+      //   return false
+      // }
+
+      // console.log("✅ Bucket created successfully:", newBucket)
+      // return true
     } catch (error) {
       console.error("❌ Unexpected error in ensureBucketExists:", error)
       return false
@@ -52,13 +53,9 @@ export class SupabaseStorageService {
   }
 
   // สร้างชื่อไฟล์ที่ unique และระบุตัวตน
-  private generateFileName(nickname: string, firstName: string, lastName: string, fileExtension: string): string {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
-    const cleanNickname = this.cleanString(nickname)
-    const cleanFirstName = this.cleanString(firstName)
-    const cleanLastName = this.cleanString(lastName)
+  private generateFileName(uuid:string, fileExtension: string): string {
 
-    return `${cleanNickname}_${cleanFirstName}_${cleanLastName}_${timestamp}.${fileExtension}`
+    return `${uuid}.${fileExtension}`
   }
 
   // ทำความสะอาดชื่อไฟล์
@@ -74,6 +71,7 @@ export class SupabaseStorageService {
     nickname: string,
     firstName: string,
     lastName: string,
+    uuid: string
   ): Promise<{ url: string; path: string } | null> {
     try {
       console.log("🔄 Starting payment slip upload process...")
@@ -95,9 +93,9 @@ export class SupabaseStorageService {
       }
 
       // สร้างชื่อไฟล์
-      const fileExtension = file.name.split(".").pop()?.toLowerCase() || "jpg"
-      const fileName = this.generateFileName(nickname, firstName, lastName, fileExtension)
-      const filePath = fileName // ไม่ใส่ folder prefix
+      const fileExtension = file.name.split(".").pop()?.toLowerCase() || "jpg" 
+      const fileName = this.generateFileName(uuid, fileExtension)
+      const filePath =`public/seedcamp2025/${fileName}`;
 
       console.log("📝 Upload details:", {
         fileName,
