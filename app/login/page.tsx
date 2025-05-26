@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import { useAuth } from "@/contexts/auth-context"
@@ -268,15 +267,15 @@ export default function LoginPage() {
 
           {/* Error and Success Messages */}
           {error && (
-            <Alert variant="destructive" className="mt-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 mt-4">
+              <div className="text-red-800">{error}</div>
+            </div>
           )}
 
           {success && (
-            <Alert className="mt-4 border-green-200 bg-green-50">
-              <AlertDescription className="text-green-800">{success}</AlertDescription>
-            </Alert>
+            <div className="rounded-lg border border-green-200 bg-green-50 p-3 mt-4">
+              <div className="text-green-800">{success}</div>
+            </div>
           )}
         </CardContent>
 

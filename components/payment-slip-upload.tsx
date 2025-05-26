@@ -3,13 +3,12 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
-import { Upload, X, Eye, Loader2, CheckCircle, AlertCircle, TestTube } from "lucide-react"
+import { Upload, X, Eye, Loader2, TestTube } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Dialog,
   DialogContent,
@@ -22,6 +21,7 @@ import {
 import { supabaseStorage } from "@/lib/supabase-storage"
 import { useDataSource } from "@/contexts/data-source-context"
 import { useAuth } from "@/contexts/auth-context"
+import { CustomAlert, CustomAlertDescription } from "./custom-alert"
 
 interface PaymentSlipUploadProps {
   currentSlip?: string
@@ -266,34 +266,25 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
 
       {/* Storage Test Result */}
       {dataSource === "supabase" && storageTest && (
-        <Alert variant={storageTest.success ? "default" : "destructive"}>
-          {storageTest.success ? (
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          ) : (
-            <AlertCircle className="h-4 w-4" />
-          )}
-          <AlertDescription className={storageTest.success ? "text-green-800" : ""}>
-            {storageTest.message}
-          </AlertDescription>
-        </Alert>
+        <CustomAlert variant={storageTest.success ? "success" : "destructive"}>
+          <CustomAlertDescription>{storageTest.message}</CustomAlertDescription>
+        </CustomAlert>
       )}
 
       {/* Upload Status Messages */}
       {uploadError && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="whitespace-pre-line">{uploadError}</AlertDescription>
-        </Alert>
+        <CustomAlert variant="destructive">
+          <CustomAlertDescription className="whitespace-pre-line">{uploadError}</CustomAlertDescription>
+        </CustomAlert>
       )}
 
       {uploadSuccess && (
-        <Alert className="border-green-200 bg-green-50">
-          <CheckCircle className="h-4 w-4 text-green-600" />
-          <AlertDescription className="text-green-800">
+        <CustomAlert variant="success">
+          <CustomAlertDescription>
             Payment slip uploaded successfully! Payment status updated to "Paid".
             {dataSource === "supabase" && " File saved to Supabase Storage and database."}
-          </AlertDescription>
-        </Alert>
+          </CustomAlertDescription>
+        </CustomAlert>
       )}
 
       {/* Upload Progress */}
@@ -405,10 +396,11 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       ) : null}
 
       {dataSource === "supabase" && !user && (
-        <Alert variant="destructive" className="mt-2">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>You must be logged in to upload payment slips to Supabase Storage.</AlertDescription>
-        </Alert>
+        <CustomAlert variant="destructive" className="mt-2">
+          <CustomAlertDescription>
+            You must be logged in to upload payment slips to Supabase Storage.
+          </CustomAlertDescription>
+        </CustomAlert>
       )}
 
       {/* Payment Slips History (for Supabase mode) */}

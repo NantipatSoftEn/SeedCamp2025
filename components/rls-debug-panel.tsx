@@ -5,7 +5,6 @@ import { Database, Shield, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import { useAuth } from "@/contexts/auth-context"
 import { useDataSource } from "@/contexts/data-source-context"
@@ -173,23 +172,23 @@ export function RLSDebugPanel() {
                 </div>
 
                 {testResults.insertTest?.error && (
-                  <Alert variant="destructive" className="mt-2">
-                    <AlertDescription className="text-xs">
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-2 mt-2">
+                    <div className="text-xs text-red-800">
                       <strong>Insert Error:</strong>
                       <br />
                       {testResults.insertTest.error}
-                    </AlertDescription>
-                  </Alert>
+                    </div>
+                  </div>
                 )}
 
                 {testResults.authentication?.error && (
-                  <Alert variant="destructive" className="mt-2">
-                    <AlertDescription className="text-xs">
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-2 mt-2">
+                    <div className="text-xs text-red-800">
                       <strong>Auth Error:</strong>
                       <br />
                       {testResults.authentication.error}
-                    </AlertDescription>
-                  </Alert>
+                    </div>
+                  </div>
                 )}
               </div>
             )}

@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 
@@ -158,9 +157,9 @@ export default function ResetPasswordPage() {
           </form>
 
           {error && (
-            <Alert variant="destructive" className="mt-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 mt-4">
+              <div className="text-red-800">{error}</div>
+            </div>
           )}
         </CardContent>
       </Card>
