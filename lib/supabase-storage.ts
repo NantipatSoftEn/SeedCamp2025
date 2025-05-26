@@ -142,10 +142,10 @@ export class SupabaseStorageService {
 
       console.log("📤 File uploaded successfully, now saving to database...")
 
-      // บันทึกข้อมูลใน payment_slips table
+      // บันทึกข้อมูลใน payment_slips table - ใช้ personId เป็น person_id
       const insertData = {
         user_id: user.id,
-        person_id: personId,
+        person_id: personId, // ส่ง personId ที่เป็น id ของ seedcamp_people table
         path: filePath,
         original_name: file.name,
         file_size: file.size,
@@ -324,70 +324,6 @@ export class SupabaseStorageService {
   getPublicUrl(path: string): string {
     const { data } = this.supabase.storage.from(this.bucketName).getPublicUrl(path)
     return data.publicUrl
-  }
-
-  // ทดสอบการเชื่อมต่อ Storage และ RLS
-  async testConnection(): Promise<{ success: boolean; message: string }> {
-    try {
-      console.log("🧪 Testing Supabase Storage connection and RLS...")
-
-      // Test 1: Authentication
-      const { user } = await this.ensureAuthenticated()
-
-      // Test 2: Storage connection
-      const { data: buckets, error: storageError } = await this.supabase.storage.listBuckets()
-
-      if (storageError) {
-        return {
-          success: false,
-          message: `Storage connection failed: ${storageError.message}`,
-        }
-      }
-
-      const bucketExists = buckets?.some((bucket) => bucket.id === this.bucketName)
-
-      // Test 3: RLS policies by trying to insert/delete a test record
-      const testRecord = {
-        user_id: user.id,
-        person_id: "test-person-id",
-        path: "test/path.jpg",
-        original_name: "test.jpg",
-        file_size: 1024,
-        mime_type: "image/jpeg",
-      }
-
-      const { data: insertData, error: insertError } = await this.supabase
-        .from("payment_slips")
-        .insert(testRecord)
-        .select()
-        .single()
-
-      if (insertError) {
-        return {
-          success: false,
-          message: `RLS test failed - cannot insert: ${insertError.message}`,
-        }
-      }
-
-      // Clean up test record
-      const { error: deleteError } = await this.supabase.from("payment_slips").delete().eq("id", insertData.id)
-
-      if (deleteError) {
-        console.warn("Could not clean up test record:", deleteError.message)
-      }
-
-      return {
-        success: true,
-        message: `All tests passed! Storage connected, bucket '${this.bucketName}' ${
-          bucketExists ? "exists" : "will be created when needed"
-        }, RLS policies working correctly for user: ${user.email}`,
-      }
-    } catch (error) {
-      return {
-        success: false,
-        message: `Test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      }
-    }
   }
 }
 

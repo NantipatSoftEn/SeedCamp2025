@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
-import { Upload, X, Eye, Loader2, TestTube } from "lucide-react"
+import { Upload, X, Eye, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -41,8 +41,6 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
-  const [storageTest, setStorageTest] = useState<{ success: boolean; message: string } | null>(null)
-  const [testing, setTesting] = useState(false)
   const [paymentSlips, setPaymentSlips] = useState<
     Array<{
       id: string
@@ -54,31 +52,14 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
   >([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { dataSource } = useDataSource()
-  const { user } = useAuth() // Add this line
+  const { user } = useAuth()
 
-  // ทดสอบ Storage connection และโหลดข้อมูล payment slips เมื่อ component mount
+  // โหลดข้อมูล payment slips เมื่อ component mount
   useEffect(() => {
     if (dataSource === "supabase") {
-      testStorageConnection()
       loadPaymentSlips()
     }
   }, [dataSource, personInfo.id])
-
-  const testStorageConnection = async () => {
-    setTesting(true)
-    try {
-      const result = await supabaseStorage.testConnection()
-      setStorageTest(result)
-      console.log("🧪 Storage test result:", result)
-    } catch (error) {
-      setStorageTest({
-        success: false,
-        message: `Test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      })
-    } finally {
-      setTesting(false)
-    }
-  }
 
   const loadPaymentSlips = async () => {
     if (dataSource === "supabase" && personInfo.id) {
@@ -172,14 +153,14 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
         await supabaseStorage.deletePaymentSlip(currentSlip, personInfo.id)
       }
 
-      // Upload new file
-      console.log("📤 Starting upload for:", personInfo)
+      // Upload new file - ส่ง person_id เป็น id ของ seedcamp_people table
+      console.log("📤 Starting upload for person ID:", personInfo.id)
       const result = await supabaseStorage.uploadPaymentSlip(
         file,
         personInfo.nickname,
         personInfo.firstName,
         personInfo.lastName,
-        personInfo.id,
+        personInfo.id, // ส่ง id ของ seedcamp_people table เป็น person_id
       )
 
       clearInterval(progressInterval)
@@ -206,9 +187,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       if (errorMessage.includes("Authentication required") || errorMessage.includes("logged in")) {
         setUploadError(`${errorMessage}\n\nPlease make sure you are logged in and try again.`)
       } else if (errorMessage.includes("bucket")) {
-        setUploadError(
-          `${errorMessage}\n\nTip: Try clicking the "Test Storage" button to check your Supabase Storage setup.`,
-        )
+        setUploadError(`${errorMessage}\n\nTip: Check your Supabase Storage setup in the database.`)
       } else {
         setUploadError(errorMessage)
       }
@@ -256,20 +235,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Label>Payment Slip Upload</Label>
-        {dataSource === "supabase" && (
-          <Button variant="outline" size="sm" onClick={testStorageConnection} disabled={testing} className="text-xs">
-            {testing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <TestTube className="h-3 w-3 mr-1" />}
-            Test Storage
-          </Button>
-        )}
       </div>
-
-      {/* Storage Test Result */}
-      {dataSource === "supabase" && storageTest && (
-        <CustomAlert variant={storageTest.success ? "success" : "destructive"}>
-          <CustomAlertDescription>{storageTest.message}</CustomAlertDescription>
-        </CustomAlert>
-      )}
 
       {/* Upload Status Messages */}
       {uploadError && (
@@ -296,7 +262,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
           </div>
           <Progress value={uploadProgress} className="h-2" />
           <p className="text-xs text-gray-500">
-            Uploading as: {personInfo.nickname}_{personInfo.firstName}_{personInfo.lastName}
+            Uploading for person ID: {personInfo.id} ({personInfo.nickname})
           </p>
         </div>
       )}
@@ -321,7 +287,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
                     {dataSource === "supabase" ? "Stored in Supabase Storage & Database" : "Mock data"}
                   </p>
                   <p className="text-xs text-gray-400">
-                    Owner: {personInfo.nickname} ({personInfo.firstName} {personInfo.lastName})
+                    Person ID: {personInfo.id} - {personInfo.nickname} ({personInfo.firstName} {personInfo.lastName})
                   </p>
                   {dataSource === "supabase" && paymentSlips.length > 0 && (
                     <p className="text-xs text-blue-600">📁 {paymentSlips.length} file(s) in database</p>
@@ -365,7 +331,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
         <div
           className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
             dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-gray-400"
-          } ${dataSource === "supabase" && storageTest && !storageTest.success ? "opacity-50" : ""}`}
+          }`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
@@ -377,7 +343,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
             accept="image/*"
             onChange={handleChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            disabled={uploading || (dataSource === "supabase" && !!storageTest && !storageTest.success)}
+            disabled={uploading}
           />
           <Upload className="mx-auto h-12 w-12 text-gray-400" />
           <p className="mt-2 text-sm text-gray-600">
@@ -386,12 +352,9 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
           <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
           <p className="text-xs text-blue-600 mt-2">
             {dataSource === "supabase"
-              ? `Will be saved to database and payment status will be updated to "Paid"`
+              ? `Will be saved to database with person_id: ${personInfo.id}`
               : "Using mock data mode"}
           </p>
-          {dataSource === "supabase" && storageTest && !storageTest.success && (
-            <p className="text-xs text-red-600 mt-2">⚠️ Storage not ready - please test connection first</p>
-          )}
         </div>
       ) : null}
 
