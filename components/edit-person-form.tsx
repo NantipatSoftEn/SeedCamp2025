@@ -9,12 +9,15 @@ interface EditPersonFormProps {
     lastName: string
     email: string
     phone: string
+    address: string
+    paymentSlip?: File | null
   }
   onSubmit: (values: {
     firstName: string
     lastName: string
     email: string
     phone: string
+    address: string
     paymentSlip?: File | null
   }) => void
   onCancel: () => void
@@ -25,19 +28,17 @@ const EditPersonForm: React.FC<EditPersonFormProps> = ({ initialValues, onSubmit
   const [lastName, setLastName] = useState(initialValues.lastName)
   const [email, setEmail] = useState(initialValues.email)
   const [phone, setPhone] = useState(initialValues.phone)
-  const [paymentSlip, setPaymentSlip] = useState<File | null>(null)
+  const [address, setAddress] = useState(initialValues.address)
+  const [paymentSlip, setPaymentSlip] = useState<File | null>(initialValues.paymentSlip || null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit({ firstName, lastName, email, phone, paymentSlip })
+    onSubmit({ firstName, lastName, email, phone, address, paymentSlip })
   }
 
   const handlePaymentSlipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setPaymentSlip(e.target.files[0])
-    } else {
-      setPaymentSlip(null)
-    }
+    const file = e.target.files?.[0] || null
+    setPaymentSlip(file)
   }
 
   return (
@@ -91,6 +92,18 @@ const EditPersonForm: React.FC<EditPersonFormProps> = ({ initialValues, onSubmit
         />
       </div>
       <div className="mb-4">
+        <label htmlFor="address" className="block text-gray-700 text-sm font-bold mb-2">
+          Address:
+        </label>
+        <input
+          type="text"
+          id="address"
+          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+        />
+      </div>
+      <div className="mb-4">
         <label htmlFor="paymentSlip" className="block text-gray-700 text-sm font-bold mb-2">
           Payment Slip:
         </label>
@@ -100,9 +113,9 @@ const EditPersonForm: React.FC<EditPersonFormProps> = ({ initialValues, onSubmit
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
           onChange={handlePaymentSlipChange}
         />
-        {paymentSlip && <div className="mt-2 text-green-500">File Selected</div>}
+        {paymentSlip && <p className="text-green-500 text-sm mt-1">File selected: {paymentSlip.name}</p>}
       </div>
-      <div className="flex justify-between">
+      <div className="flex items-center justify-between">
         <button
           type="submit"
           className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
@@ -111,8 +124,8 @@ const EditPersonForm: React.FC<EditPersonFormProps> = ({ initialValues, onSubmit
         </button>
         <button
           type="button"
-          className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
           onClick={onCancel}
+          className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
         >
           Cancel
         </button>

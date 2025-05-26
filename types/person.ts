@@ -1,9 +1,22 @@
-// This is a new file, so we create the initial content.
-// Since the updates indicate that the file is already up-to-date,
-// we can create a basic type definition for a Person.
-
 export interface Person {
+  id: string
   firstName: string
   lastName: string
-  age: number
+  email?: string
+  phone?: string
+  address?: Address
+  company?: Company
+}
+
+export interface Address {
+  street: string
+  city: string
+  state: string
+  zip: string
+}
+
+export interface Company {
+  name: string
+  catchPhrase: string
+  bs: string
 }

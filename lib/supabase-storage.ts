@@ -1,22 +1,66 @@
+import type { SupabaseClient } from "@supabase/supabase-js"
 import { v4 as uuidv4 } from "uuid"
-import { supabase } from "./supabase"
 
-const BUCKET_NAME = "avatars"
+interface UploadFileParams {
+  supabaseClient: SupabaseClient
+  bucketName: string
+  file: File
+  userId: string
+  folderPath?: string // Optional folder path within the bucket
+}
 
-export async function uploadAvatar(image: File): Promise<{ publicUrl: string; error: any }> {
-  const imageName = uuidv4()
-  const imagePath = `public/seedcamp2025/${imageName}`
+interface DeleteFileParams {
+  supabaseClient: SupabaseClient
+  bucketName: string
+  filePath: string // Full path to the file in the bucket
+}
 
-  const { error } = await supabase.storage.from(BUCKET_NAME).upload(imagePath, image, {
-    cacheControl: "3600",
-    upsert: false,
-  })
+export async function uploadFile({
+  supabaseClient,
+  bucketName,
+  file,
+  userId,
+  folderPath = "",
+}: UploadFileParams): Promise<{ data: { path: string } | null; error: any }> {
+  try {
+    const fileExt = file.name.split(".").pop()
+    const fileName = `${uuidv4()}.${fileExt}`
+    const filePath = folderPath ? `${folderPath}/${fileName}` : fileName
+    const fullPath = `${userId}/${filePath}` // Include userId in the path
 
-  if (error) {
-    console.error("Error uploading image:", error)
-    return { publicUrl: "", error }
+    const { data, error } = await supabaseClient.storage.from(bucketName).upload(fullPath, file, {
+      cacheControl: "3600",
+      upsert: false,
+    })
+
+    if (error) {
+      console.error("Error uploading file:", error)
+      return { data: null, error }
+    }
+
+    return { data: { path: fullPath }, error: null } // Return the full path
+  } catch (error: any) {
+    console.error("Unexpected error uploading file:", error)
+    return { data: null, error: { message: error.message } }
   }
+}
 
-  const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(imagePath)
-  return { publicUrl: data.publicUrl, error: null }
+export async function deleteFile({
+  supabaseClient,
+  bucketName,
+  filePath,
+}: DeleteFileParams): Promise<{ data: any; error: any }> {
+  try {
+    const { data, error } = await supabaseClient.storage.from(bucketName).remove([filePath])
+
+    if (error) {
+      console.error("Error deleting file:", error)
+      return { data: null, error }
+    }
+
+    return { data, error: null }
+  } catch (error: any) {
+    console.error("Unexpected error deleting file:", error)
+    return { data: null, error: { message: error.message } }
+  }
 }

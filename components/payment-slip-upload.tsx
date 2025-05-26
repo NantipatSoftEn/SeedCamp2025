@@ -10,29 +10,18 @@ interface PaymentSlipUploadProps {
   onUpload: (file: File) => void
   loading: boolean
   error: string | null
-  clearError: () => void
+  success: boolean
 }
 
-const PaymentSlipUpload: React.FC<PaymentSlipUploadProps> = ({ onUpload, loading, error, clearError }) => {
+const PaymentSlipUpload: React.FC<PaymentSlipUploadProps> = ({ onUpload, loading, error, success }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
-  const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
-      const file = acceptedFiles[0]
-      setSelectedFile(file)
-      clearError() // Clear any previous errors when a new file is selected
-    },
-    [clearError],
-  )
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const file = acceptedFiles[0]
+    setSelectedFile(file)
+  }, [])
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      "image/*": [".jpeg", ".png", ".jpg", ".gif", ".bmp"],
-      "application/pdf": [".pdf"],
-    },
-    maxFiles: 1,
-  })
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, multiple: false })
 
   const handleUpload = () => {
     if (selectedFile) {
@@ -50,41 +39,22 @@ const PaymentSlipUpload: React.FC<PaymentSlipUploadProps> = ({ onUpload, loading
         border: "2px dashed grey",
         borderRadius: 1,
         backgroundColor: "#fafafa",
-        color: "#bdbdbd",
         cursor: "pointer",
         "&:hover": {
-          borderColor: "primary.main",
-          color: "primary.main",
+          backgroundColor: "#f0f0f0",
         },
       }}
+      {...getRootProps()}
     >
-      <Box
-        {...getRootProps()}
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          width: "100%",
-        }}
-      >
-        <input {...getInputProps()} />
-        <CloudUploadIcon sx={{ fontSize: 60 }} />
-        <Typography variant="body1">
-          {isDragActive ? "Drop the file here ..." : "Drag and drop or click to select a payment slip"}
-        </Typography>
-        <Typography variant="caption">(Accepts .jpeg, .png, .jpg, .gif, .bmp, .pdf)</Typography>
-      </Box>
-
+      <input {...getInputProps()} />
+      <CloudUploadIcon sx={{ fontSize: 40, color: "grey", mb: 1 }} />
+      <Typography variant="body1" color="textSecondary">
+        {isDragActive ? "Drop the payment slip here ..." : `Drag 'n' drop a payment slip here, or click to select file`}
+      </Typography>
       {selectedFile && (
-        <Box mt={2} textAlign="center">
-          <Typography variant="subtitle2">Selected File: {selectedFile.name}</Typography>
-        </Box>
-      )}
-
-      {error && (
-        <Alert severity="error" onClose={clearError} sx={{ mt: 2, width: "100%" }}>
-          {error}
-        </Alert>
+        <Typography variant="subtitle2" color="textSecondary" mt={1}>
+          Selected file: {selectedFile.name}
+        </Typography>
       )}
 
       <Button
@@ -92,10 +62,22 @@ const PaymentSlipUpload: React.FC<PaymentSlipUploadProps> = ({ onUpload, loading
         color="primary"
         onClick={handleUpload}
         disabled={!selectedFile || loading}
-        sx={{ mt: 3 }}
+        sx={{ mt: 2 }}
       >
-        {loading ? <CircularProgress size={24} color="inherit" /> : "Upload Payment Slip"}
+        {loading ? <CircularProgress size={24} color="inherit" /> : "Upload"}
       </Button>
+
+      {error && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {success && (
+        <Alert severity="success" sx={{ mt: 2 }}>
+          Payment slip uploaded successfully!
+        </Alert>
+      )}
     </Box>
   )
 }
