@@ -28,7 +28,7 @@ interface EditPersonFormProps {
   person: Person | null
   isOpen: boolean
   onClose: () => void
-  onSave: (personId: string, data: PersonFormData) => void
+  onSave: (personId: string, data: PersonFormData) => Promise<void>
 }
 
 const groupCareOptions = ["รังสิต", "มศว.", "จันทรเกษม", "เกษตร", "ungroup"]
@@ -74,6 +74,14 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
     }
   }, [person])
 
+  // Reset form state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setIsSaving(false)
+      setErrors({})
+    }
+  }, [isOpen])
+
   const validateForm = (): boolean => {
     const newErrors: Partial<PersonFormData> = {}
 
@@ -101,17 +109,38 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (person && validateForm()) {
-      setIsSaving(true)
-      try {
-        console.log("📝 Submitting form:", { personId: person.id, formData })
-        await onSave(person.id, formData)
-        // Form will be closed by parent component after successful save
-      } catch (error) {
-        console.error("❌ Error in form submission:", error)
-        setIsSaving(false) // Reset saving state on error
-      }
-      // Don't reset isSaving here - let parent handle it
+
+    if (!person) {
+      console.error("❌ No person data available")
+      return
+    }
+
+    if (!validateForm()) {
+      console.log("❌ Form validation failed")
+      return
+    }
+
+    console.log("🔄 Starting form submission...")
+    setIsSaving(true)
+
+    try {
+      console.log("📝 Submitting form:", { personId: person.id, formData })
+
+      // Call the onSave function with proper error handling
+      await onSave(person.id, formData)
+
+      console.log("✅ Form submission completed successfully")
+
+      // Form will be closed by parent component after successful save
+      // Don't reset isSaving here - let parent handle it via modal close
+    } catch (error) {
+      console.error("❌ Error in form submission:", error)
+
+      // Reset saving state on error so user can try again
+      setIsSaving(false)
+
+      // You could also show an error message here if needed
+      // setErrors({ general: error.message })
     }
   }
 
@@ -124,7 +153,12 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
 
   const handleClose = () => {
     if (!isSaving) {
+      console.log("🔄 Closing modal and resetting state")
+      setIsSaving(false)
+      setErrors({})
       onClose()
+    } else {
+      console.log("⚠️ Cannot close modal while saving")
     }
   }
 
@@ -152,6 +186,11 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
               <span className="block text-sm text-green-600 mt-1">
                 ✅ Changes will be saved to Supabase database
                 <br />📁 Payment slips will be stored in Supabase Storage with person identification
+              </span>
+            )}
+            {isSaving && (
+              <span className="block text-sm text-blue-600 mt-2 font-medium">
+                🔄 Saving changes to {dataSource === "mock" ? "mock data" : "database"}...
               </span>
             )}
           </DialogDescription>
@@ -365,6 +404,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
                   lastName: formData.last_name,
                   id: formData.id,
                 }}
+                disabled={isSaving}
               />
               {dataSource === "supabase" && (
                 <p className="text-xs text-blue-600">
