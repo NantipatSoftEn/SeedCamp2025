@@ -19,12 +19,28 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        prompt: ["Prompt", "sans-serif"],
-        sans: [
-          "Prompt",
+        thai: [
           "Sarabun",
+          "Prompt",
           "Kanit",
           "Noto Sans Thai",
+          "Leelawadee UI",
+          "Tahoma",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif",
+        ],
+        sans: [
+          "Sarabun",
+          "Prompt",
+          "Kanit",
+          "Noto Sans Thai",
+          "Leelawadee UI",
+          "Tahoma",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
