@@ -333,6 +333,80 @@ export class SupabaseStorageService {
     }
   }
 
+  // ลบข้อมูล payment slip ทั้งหมดของ person_id (เมื่อกดปิดรูป)
+  async deleteAllPaymentSlipsForPerson(personId: string): Promise<boolean> {
+    try {
+      console.log("🗑️ Deleting all payment slips for person:", personId)
+
+      // ตรวจสอบ authentication
+      const { user } = await this.ensureAuthenticated()
+
+      // ดึงข้อมูล payment slips ทั้งหมดของ person นี้
+      const { data: paymentSlips, error: fetchError } = await this.supabase
+        .from("payment_slips")
+        .select("*")
+        .eq("person_id", personId)
+
+      if (fetchError) {
+        console.error("❌ Error fetching payment slips:", fetchError)
+        return false
+      }
+
+      if (!paymentSlips || paymentSlips.length === 0) {
+        console.log("ℹ️ No payment slips found for person:", personId)
+        // ยังคงอัปเดต person record เพื่อให้แน่ใจ
+      } else {
+        console.log(`📁 Found ${paymentSlips.length} payment slip(s) to delete:`, paymentSlips)
+
+        // ลบไฟล์ทั้งหมดจาก storage
+        const filePaths = paymentSlips.map((slip) => slip.path)
+        if (filePaths.length > 0) {
+          const { error: storageError } = await this.supabase.storage.from(this.bucketName).remove(filePaths)
+
+          if (storageError) {
+            console.warn("⚠️ Could not delete some files from storage:", storageError.message)
+          } else {
+            console.log("✅ All files deleted from storage:", filePaths)
+          }
+        }
+
+        // ลบข้อมูลทั้งหมดจาก payment_slips table
+        const { error: dbError } = await this.supabase.from("payment_slips").delete().eq("person_id", personId)
+
+        if (dbError) {
+          console.error("❌ Could not delete payment slip records:", dbError.message)
+        } else {
+          console.log("✅ All payment slip records deleted from database")
+        }
+      }
+
+      // อัปเดต seedcamp_people table - เซ็ต payment_status เป็น unpaid และลบ payment_slip
+      console.log("💾 Updating seedcamp_people table to unpaid...")
+
+      const { error: updateError } = await this.supabase
+        .from("seedcamp_people")
+        .update({
+          payment_status: "unpaid", // เปลี่ยนเป็น unpaid
+          payment_slip: null, // ลบ payment_slip path
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", personId)
+
+      if (updateError) {
+        console.error("❌ Failed to update payment status after deletion:", updateError)
+        return false
+      } else {
+        console.log("✅ Payment status updated to 'unpaid' and payment_slip cleared")
+      }
+
+      console.log("✅ Successfully deleted all payment slips for person:", personId)
+      return true
+    } catch (error) {
+      console.error("❌ Error deleting all payment slips for person:", error)
+      return false
+    }
+  }
+
   // ดึงข้อมูล payment slip ของบุคคลจาก database
   async getPersonPaymentSlips(personId: string): Promise<
     Array<{

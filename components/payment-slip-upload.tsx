@@ -41,6 +41,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [paymentSlips, setPaymentSlips] = useState<
     Array<{
       id: string
@@ -223,27 +224,50 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
   }
 
   const removeSlip = async () => {
-    if (
-      currentSlip &&
-      dataSource === "supabase" &&
-      (currentSlip.includes("supabase") || currentSlip.includes("public/"))
-    ) {
-      try {
-        console.log("🗑️ Deleting payment slip and updating status to unpaid...")
-        await supabaseStorage.deletePaymentSlip(currentSlip, personInfo.id)
-        await loadPaymentSlips() // โหลดข้อมูลใหม่
-        console.log("✅ Payment slip deleted and status updated to unpaid")
-      } catch (error) {
-        console.warn("Could not delete file from storage:", error)
+    if (dataSource === "mock") {
+      // Mock mode - just clear the slip
+      onSlipChange(undefined)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
       }
+      setUploadError(null)
+      setUploadSuccess(false)
+      return
     }
 
-    onSlipChange(undefined)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
-    }
+    // Supabase mode - delete all payment slips for this person
+    setDeleting(true)
     setUploadError(null)
-    setUploadSuccess(false)
+
+    try {
+      console.log("🗑️ Deleting all payment slips for person:", personInfo.id)
+
+      // ลบข้อมูล payment slips ทั้งหมดของ person นี้
+      const success = await supabaseStorage.deleteAllPaymentSlipsForPerson(personInfo.id)
+
+      if (success) {
+        // Clear current slip
+        onSlipChange(undefined)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ""
+        }
+
+        // โหลดข้อมูล payment slips ใหม่ (ควรจะว่างเปล่า)
+        await loadPaymentSlips()
+
+        console.log("✅ All payment slips deleted successfully")
+        setUploadSuccess(true)
+        setTimeout(() => setUploadSuccess(false), 3000)
+      } else {
+        throw new Error("Failed to delete payment slips")
+      }
+    } catch (error) {
+      console.error("❌ Delete failed:", error)
+      const errorMessage = error instanceof Error ? error.message : "Delete failed"
+      setUploadError(`Failed to delete payment slips: ${errorMessage}`)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   // ฟังก์ชันสำหรับแปลง path เป็น URL ที่ถูกต้องสำหรับแสดงรูป
@@ -346,8 +370,10 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       {uploadSuccess && (
         <CustomAlert variant="success">
           <CustomAlertDescription>
-            Payment slip uploaded successfully! Payment status updated to "Paid" and slip path saved.
-            {dataSource === "supabase" && " File saved to Supabase Storage and database."}
+            {deleting
+              ? "Payment slips deleted successfully! Payment status updated to 'Unpaid'."
+              : "Payment slip uploaded successfully! Payment status updated to 'Paid' and slip path saved."}
+            {dataSource === "supabase" && " Database updated successfully."}
           </CustomAlertDescription>
         </CustomAlert>
       )}
@@ -366,7 +392,20 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
         </div>
       )}
 
-      {currentSlip && !uploading ? (
+      {/* Delete Progress */}
+      {deleting && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Deleting payment slips from database and storage...</span>
+          </div>
+          <p className="text-xs text-gray-500">
+            Deleting all payment slips for person ID: {personInfo.id} ({personInfo.nickname})
+          </p>
+        </div>
+      )}
+
+      {currentSlip && !uploading && !deleting ? (
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -424,14 +463,14 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
                     </div>
                   </DialogContent>
                 </Dialog>
-                <Button size="sm" variant="outline" onClick={removeSlip} disabled={uploading}>
-                  <X className="h-4 w-4" />
+                <Button size="sm" variant="outline" onClick={removeSlip} disabled={uploading || deleting}>
+                  {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
           </CardContent>
         </Card>
-      ) : !uploading ? (
+      ) : !uploading && !deleting ? (
         <div
           className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
             dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-gray-400"
@@ -447,7 +486,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
             accept="image/*"
             onChange={handleChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            disabled={uploading}
+            disabled={uploading || deleting}
           />
           <Upload className="mx-auto h-12 w-12 text-gray-400" />
           <p className="mt-2 text-sm text-gray-600">
