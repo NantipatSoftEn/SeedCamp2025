@@ -17,8 +17,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="th">
+      <body className="font-thai">
         <AuthProvider>
           <DataSourceProvider>
             {children}

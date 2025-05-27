@@ -16,9 +16,14 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { UserMenu } from "@/components/user-menu"
 import { AuthTestButton } from "@/components/auth-test-button"
 import { RLSDebugPanel } from "@/components/rls-debug-panel"
+import { useAuth } from "@/contexts/auth-context"
 
 export default function Page() {
   const [currentView, setCurrentView] = useState<"people" | "analytics">("people")
+  const { user } = useAuth()
+
+  // Check if user is admin
+  const isAdmin = user?.email === "admin@seedbkk.org"
 
   return (
     <ProtectedRoute>
@@ -47,17 +52,24 @@ export default function Page() {
                   <span className="hidden sm:inline">Analytics Dashboard</span>
                   <span className="sm:hidden">Analytics</span>
                 </Button>
-                <Button variant="outline" asChild>
-                  <Link href="/import" className="flex items-center gap-2">
-                    <Upload className="h-4 w-4" />
-                    <span className="hidden sm:inline">Import Data</span>
-                    <span className="sm:hidden">Import</span>
-                  </Link>
-                </Button>
-                <SupabaseTestButton />
-                <StorageTestButton />
-                <AuthTestButton />
-                <DataSourceToggle />
+
+                {/* Admin-only buttons */}
+                {isAdmin && (
+                  <>
+                    <Button variant="outline" asChild>
+                      <Link href="/import" className="flex items-center gap-2">
+                        <Upload className="h-4 w-4" />
+                        <span className="hidden sm:inline">Import Data</span>
+                        <span className="sm:hidden">Import</span>
+                      </Link>
+                    </Button>
+                    <SupabaseTestButton />
+                    <StorageTestButton />
+                    <AuthTestButton />
+                    <DataSourceToggle />
+                  </>
+                )}
+
                 <UserMenu />
               </div>
             </div>

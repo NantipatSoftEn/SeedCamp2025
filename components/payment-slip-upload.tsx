@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
-import { Upload, X, Eye, Loader2 } from "lucide-react"
+import { Upload, X, Eye, Loader2, Database } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -41,6 +41,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [paymentSlips, setPaymentSlips] = useState<
     Array<{
       id: string
@@ -50,6 +51,8 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       uploadedAt: string
     }>
   >([])
+  const [dbTestResult, setDbTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [testing, setTesting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { dataSource } = useDataSource()
   const { user } = useAuth()
@@ -69,11 +72,26 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
 
         // ถ้ามี payment slip ล่าสุด ให้ใช้เป็น current slip
         if (slips.length > 0 && !currentSlip) {
-          onSlipChange(slips[0].url)
+          onSlipChange(slips[0].path) // ใช้ path แทน URL
         }
       } catch (error) {
         console.error("Failed to load payment slips:", error)
       }
+    }
+  }
+
+  const testDatabaseConnection = async () => {
+    setTesting(true)
+    try {
+      const result = await supabaseStorage.testDatabaseConnection()
+      setDbTestResult(result)
+    } catch (error) {
+      setDbTestResult({
+        success: false,
+        message: `Test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      })
+    } finally {
+      setTesting(false)
     }
   }
 
@@ -117,6 +135,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
 
     setUploadError(null)
     setUploadSuccess(false)
+    setDbTestResult(null) // Clear previous test results
 
     if (dataSource === "mock") {
       // Mock mode - convert to base64
@@ -148,7 +167,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       }, 200)
 
       // Delete old file if exists
-      if (currentSlip && currentSlip.includes("supabase")) {
+      if (currentSlip && (currentSlip.includes("supabase") || currentSlip.includes("public/"))) {
         console.log("🗑️ Deleting old file before upload...")
         await supabaseStorage.deletePaymentSlip(currentSlip, personInfo.id)
       }
@@ -167,8 +186,8 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       setUploadProgress(100)
 
       if (result) {
-        // ใช้ public URL สำหรับแสดงรูป
-        onSlipChange(result.url)
+        // ใช้ path แทน public URL สำหรับ currentSlip
+        onSlipChange(result.path)
         setUploadSuccess(true)
         setTimeout(() => setUploadSuccess(false), 3000)
 
@@ -189,6 +208,12 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
         setUploadError(`${errorMessage}\n\nPlease make sure you are logged in and try again.`)
       } else if (errorMessage.includes("bucket")) {
         setUploadError(`${errorMessage}\n\nTip: Check your Supabase Storage setup in the database.`)
+      } else if (errorMessage.includes("row-level security") || errorMessage.includes("RLS")) {
+        setUploadError(
+          `${errorMessage}\n\nTip: Check your Supabase RLS policies for payment_slips and seedcamp_people tables.`,
+        )
+      } else if (errorMessage.includes("foreign key")) {
+        setUploadError(`${errorMessage}\n\nTip: Person ID ${personInfo.id} may not exist in the database.`)
       } else {
         setUploadError(errorMessage)
       }
@@ -199,46 +224,141 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
   }
 
   const removeSlip = async () => {
-    if (currentSlip && dataSource === "supabase" && currentSlip.includes("supabase")) {
-      try {
-        console.log("🗑️ Deleting payment slip and updating status to unpaid...")
-        await supabaseStorage.deletePaymentSlip(currentSlip, personInfo.id)
-        await loadPaymentSlips() // โหลดข้อมูลใหม่
-        console.log("✅ Payment slip deleted and status updated to unpaid")
-      } catch (error) {
-        console.warn("Could not delete file from storage:", error)
+    if (dataSource === "mock") {
+      // Mock mode - just clear the slip
+      onSlipChange(undefined)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
       }
+      setUploadError(null)
+      setUploadSuccess(false)
+      return
     }
 
-    onSlipChange(undefined)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
-    }
+    // Supabase mode - delete all payment slips for this person
+    setDeleting(true)
     setUploadError(null)
-    setUploadSuccess(false)
+
+    try {
+      console.log("🗑️ Deleting all payment slips for person:", personInfo.id)
+
+      // ลบข้อมูล payment slips ทั้งหมดของ person นี้
+      const success = await supabaseStorage.deleteAllPaymentSlipsForPerson(personInfo.id)
+
+      if (success) {
+        // Clear current slip
+        onSlipChange(undefined)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ""
+        }
+
+        // โหลดข้อมูล payment slips ใหม่ (ควรจะว่างเปล่า)
+        await loadPaymentSlips()
+
+        console.log("✅ All payment slips deleted successfully")
+        setUploadSuccess(true)
+        setTimeout(() => setUploadSuccess(false), 3000)
+      } else {
+        throw new Error("Failed to delete payment slips")
+      }
+    } catch (error) {
+      console.error("❌ Delete failed:", error)
+      const errorMessage = error instanceof Error ? error.message : "Delete failed"
+      setUploadError(`Failed to delete payment slips: ${errorMessage}`)
+    } finally {
+      setDeleting(false)
+    }
   }
 
-  // ใช้ URL ที่ถูกต้องสำหรับแสดงรูป
-  const getDisplayUrl = (url?: string) => {
-    if (!url) return "/placeholder.svg"
+  // ฟังก์ชันสำหรับแปลง path เป็น URL ที่ถูกต้องสำหรับแสดงรูป
+  const getDisplayUrl = (pathOrUrl?: string) => {
+    if (!pathOrUrl) return "/placeholder.svg"
 
-    if (dataSource === "mock" || url.startsWith("data:")) {
-      return url
+    console.log("🖼️ Getting display URL for:", pathOrUrl)
+
+    // ถ้าเป็น mock data (base64)
+    if (dataSource === "mock" || pathOrUrl.startsWith("data:")) {
+      return pathOrUrl
+    }
+
+    // ถ้าเป็น full URL อยู่แล้ว
+    if (pathOrUrl.startsWith("http")) {
+      console.log("✅ Already a full URL:", pathOrUrl)
+      return pathOrUrl
     }
 
     // ถ้าเป็น path ให้แปลงเป็น public URL
-    if (!url.startsWith("http")) {
-      return supabaseStorage.getPaymentSlipPreviewUrl(url) || "/placeholder.svg"
+    if (pathOrUrl.includes("public/")) {
+      const publicUrl = supabaseStorage.getPublicUrl(pathOrUrl)
+      console.log("✅ Converted path to URL:", pathOrUrl, "->", publicUrl)
+      return publicUrl
     }
 
-    return url
+    // fallback
+    console.warn("⚠️ Could not determine URL type, using as-is:", pathOrUrl)
+    return pathOrUrl
+  }
+
+  // ฟังก์ชันสำหรับตรวจสอบว่ารูปโหลดได้หรือไม่
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget
+    const originalSrc = img.src
+
+    console.warn("❌ Image failed to load:", originalSrc)
+
+    // ถ้าเป็น path ลองแปลงเป็น URL อีกครั้ง
+    if (currentSlip && !currentSlip.startsWith("http") && currentSlip.includes("public/")) {
+      const retryUrl = supabaseStorage.getPublicUrl(currentSlip)
+      console.log("🔄 Retrying with converted URL:", retryUrl)
+
+      if (img.src !== retryUrl) {
+        img.src = retryUrl
+        return
+      }
+    }
+
+    // ถ้ายังไม่ได้ ใช้ placeholder
+    img.src = "/placeholder.svg"
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Label>Payment Slip Upload</Label>
+        {dataSource === "supabase" && (
+          <Button size="sm" variant="outline" onClick={testDatabaseConnection} disabled={testing}>
+            {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+            Test DB
+          </Button>
+        )}
       </div>
+
+      {/* Database Test Result */}
+      {dbTestResult && (
+        <CustomAlert variant={dbTestResult.success ? "default" : "destructive"}>
+          <CustomAlertDescription>
+            <strong>Database Test:</strong> {dbTestResult.message}
+          </CustomAlertDescription>
+        </CustomAlert>
+      )}
+
+      {/* Debug Info */}
+      {currentSlip && (
+        <div className="text-xs text-gray-400 bg-gray-50 p-2 rounded">
+          <div>
+            <strong>Current Slip:</strong> {currentSlip}
+          </div>
+          <div>
+            <strong>Display URL:</strong> {getDisplayUrl(currentSlip)}
+          </div>
+          <div>
+            <strong>Data Source:</strong> {dataSource}
+          </div>
+          <div>
+            <strong>Person ID:</strong> {personInfo.id}
+          </div>
+        </div>
+      )}
 
       {/* Upload Status Messages */}
       {uploadError && (
@@ -250,8 +370,10 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       {uploadSuccess && (
         <CustomAlert variant="success">
           <CustomAlertDescription>
-            Payment slip uploaded successfully! Payment status updated to "Paid" and slip path saved.
-            {dataSource === "supabase" && " File saved to Supabase Storage and database."}
+            {deleting
+              ? "Payment slips deleted successfully! Payment status updated to 'Unpaid'."
+              : "Payment slip uploaded successfully! Payment status updated to 'Paid' and slip path saved."}
+            {dataSource === "supabase" && " Database updated successfully."}
           </CustomAlertDescription>
         </CustomAlert>
       )}
@@ -270,7 +392,20 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
         </div>
       )}
 
-      {currentSlip && !uploading ? (
+      {/* Delete Progress */}
+      {deleting && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Deleting payment slips from database and storage...</span>
+          </div>
+          <p className="text-xs text-gray-500">
+            Deleting all payment slips for person ID: {personInfo.id} ({personInfo.nickname})
+          </p>
+        </div>
+      )}
+
+      {currentSlip && !uploading && !deleting ? (
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -278,11 +413,9 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
                 <img
                   src={getDisplayUrl(currentSlip) || "/placeholder.svg"}
                   alt="Payment slip"
-                  className="w-16 h-16 object-cover rounded"
-                  onError={(e) => {
-                    console.warn("Image failed to load:", currentSlip)
-                    e.currentTarget.src = "/placeholder.svg"
-                  }}
+                  className="w-16 h-16 object-cover rounded border"
+                  onError={handleImageError}
+                  onLoad={() => console.log("✅ Image loaded successfully:", getDisplayUrl(currentSlip))}
                 />
                 <div>
                   <p className="text-sm font-medium">Payment slip uploaded</p>
@@ -315,22 +448,29 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
                       <img
                         src={getDisplayUrl(currentSlip) || "/placeholder.svg"}
                         alt="Payment slip"
-                        className="max-w-full max-h-96 object-contain"
-                        onError={(e) => {
-                          e.currentTarget.src = "/placeholder.svg"
-                        }}
+                        className="max-w-full max-h-96 object-contain border rounded"
+                        onError={handleImageError}
+                        onLoad={() => console.log("✅ Preview image loaded successfully")}
                       />
+                    </div>
+                    <div className="text-xs text-gray-400 mt-2">
+                      <div>
+                        <strong>Source:</strong> {currentSlip}
+                      </div>
+                      <div>
+                        <strong>Display URL:</strong> {getDisplayUrl(currentSlip)}
+                      </div>
                     </div>
                   </DialogContent>
                 </Dialog>
-                <Button size="sm" variant="outline" onClick={removeSlip} disabled={uploading}>
-                  <X className="h-4 w-4" />
+                <Button size="sm" variant="outline" onClick={removeSlip} disabled={uploading || deleting}>
+                  {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
           </CardContent>
         </Card>
-      ) : !uploading ? (
+      ) : !uploading && !deleting ? (
         <div
           className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
             dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-gray-400"
@@ -346,7 +486,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
             accept="image/*"
             onChange={handleChange}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            disabled={uploading}
+            disabled={uploading || deleting}
           />
           <Upload className="mx-auto h-12 w-12 text-gray-400" />
           <p className="mt-2 text-sm text-gray-600">
@@ -380,7 +520,10 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
                   <img
                     src={slip.url || "/placeholder.svg"}
                     alt="Previous slip"
-                    className="w-8 h-8 object-cover rounded"
+                    className="w-8 h-8 object-cover rounded border"
+                    onError={(e) => {
+                      e.currentTarget.src = "/placeholder.svg"
+                    }}
                   />
                   <span>{slip.originalName}</span>
                   <span>({new Date(slip.uploadedAt).toLocaleDateString()})</span>

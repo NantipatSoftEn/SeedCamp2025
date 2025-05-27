@@ -12,9 +12,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useDataSource } from "@/contexts/data-source-context"
+import { useAuth } from "@/contexts/auth-context"
 
 export function DataSourceToggle() {
   const { dataSource, setDataSource, isDevelopment } = useDataSource()
+  const { user } = useAuth()
+
+  // Check if user is admin
+  const isAdmin = user?.email === "admin@seedbkk.org"
+
+  // Don't render if not admin
+  if (!isAdmin) {
+    return null
+  }
 
   // แสดงปุ่มเสมอ แต่จะมี badge แตกต่างกัน
   return (

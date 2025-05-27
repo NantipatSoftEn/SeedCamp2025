@@ -114,8 +114,10 @@ export default function PeopleDashboard() {
     setIsEditFormOpen(true)
   }
 
-  const handleSavePerson = async (personId: string, formData: PersonFormData) => {
+  const handleSavePerson = async (personId: string, formData: PersonFormData): Promise<void> => {
+    console.log("🔄 Starting save operation for person:", personId)
     setUpdatingPersonId(personId)
+
     try {
       console.log("🔄 Saving person:", { personId, formData, dataSource })
 
@@ -137,9 +139,10 @@ export default function PeopleDashboard() {
 
         console.log("✅ Person updated successfully:", updatedPerson)
 
-        // Close the edit form
+        // Close the edit form and reset states
         setIsEditFormOpen(false)
         setEditingPerson(null)
+        setUpdatingPersonId(null)
       } else {
         throw new Error("No updated person returned")
       }
@@ -153,14 +156,20 @@ export default function PeopleDashboard() {
         description: `Failed to update ${formData.nick_name}: ${errorMessage}`,
         variant: "destructive",
       })
-    } finally {
+
+      // Reset updating state on error
       setUpdatingPersonId(null)
+
+      // Re-throw the error so the form can handle it
+      throw error
     }
   }
 
   const handleCloseEditForm = () => {
+    console.log("🔄 Closing edit form and resetting states")
     setIsEditFormOpen(false)
     setEditingPerson(null)
+    setUpdatingPersonId(null)
   }
 
   // Calculate total statistics
