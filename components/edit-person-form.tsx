@@ -100,6 +100,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log("📝 Form submitted with data:", formData)
     e.preventDefault()
     if (person && validateForm()) {
       setIsSaving(true)
