@@ -111,7 +111,7 @@ export class SupabaseStorageService {
       // สร้างชื่อไฟล์
       const fileExtension = file.name.split(".").pop()?.toLowerCase() || "jpg"
       const fileName = this.generateFileName(personId, fileExtension)
-      const filePath = `public/seedcamp2025/${fileName}`
+      const filePath = `seedcamp2025/${fileName}`
 
       console.log("📝 Upload details:", {
         fileName,
@@ -135,7 +135,7 @@ export class SupabaseStorageService {
 
       // ดึง public URL
       const { data: urlData } = this.supabase.storage.from(this.bucketName).getPublicUrl(filePath)
-
+      console.log("🔗 Public URL generated:", urlData)
       if (!urlData.publicUrl) {
         throw new Error("Could not generate public URL for uploaded file")
       }
@@ -178,13 +178,12 @@ export class SupabaseStorageService {
       }
 
       console.log("✅ Payment slip record saved:", paymentSlipData)
-
       // อัปเดต payment_slip เป็น path ของ image และ payment_status เป็น true ใน seedcamp_people table
       const { error: updateError } = await this.supabase
         .from("seedcamp_people")
         .update({
           payment_status: "paid", // เปลี่ยนเป็น paid
-          payment_slip: filePath, // เก็บ path ของ image แทน public URL
+          payment_slip: urlData.publicUrl , // เก็บ path ของ image แทน public URL
           updated_at: new Date().toISOString(),
         })
         .eq("id", personId)
