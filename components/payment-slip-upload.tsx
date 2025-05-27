@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
-import { Upload, X, Eye, Loader2 } from "lucide-react"
+import { Upload, X, Eye, Loader2, Database } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -50,6 +50,8 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       uploadedAt: string
     }>
   >([])
+  const [dbTestResult, setDbTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [testing, setTesting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { dataSource } = useDataSource()
   const { user } = useAuth()
@@ -74,6 +76,21 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       } catch (error) {
         console.error("Failed to load payment slips:", error)
       }
+    }
+  }
+
+  const testDatabaseConnection = async () => {
+    setTesting(true)
+    try {
+      const result = await supabaseStorage.testDatabaseConnection()
+      setDbTestResult(result)
+    } catch (error) {
+      setDbTestResult({
+        success: false,
+        message: `Test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      })
+    } finally {
+      setTesting(false)
     }
   }
 
@@ -117,6 +134,7 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
 
     setUploadError(null)
     setUploadSuccess(false)
+    setDbTestResult(null) // Clear previous test results
 
     if (dataSource === "mock") {
       // Mock mode - convert to base64
@@ -189,6 +207,12 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
         setUploadError(`${errorMessage}\n\nPlease make sure you are logged in and try again.`)
       } else if (errorMessage.includes("bucket")) {
         setUploadError(`${errorMessage}\n\nTip: Check your Supabase Storage setup in the database.`)
+      } else if (errorMessage.includes("row-level security") || errorMessage.includes("RLS")) {
+        setUploadError(
+          `${errorMessage}\n\nTip: Check your Supabase RLS policies for payment_slips and seedcamp_people tables.`,
+        )
+      } else if (errorMessage.includes("foreign key")) {
+        setUploadError(`${errorMessage}\n\nTip: Person ID ${personInfo.id} may not exist in the database.`)
       } else {
         setUploadError(errorMessage)
       }
@@ -277,7 +301,22 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Label>Payment Slip Upload</Label>
+        {dataSource === "supabase" && (
+          <Button size="sm" variant="outline" onClick={testDatabaseConnection} disabled={testing}>
+            {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+            Test DB
+          </Button>
+        )}
       </div>
+
+      {/* Database Test Result */}
+      {dbTestResult && (
+        <CustomAlert variant={dbTestResult.success ? "default" : "destructive"}>
+          <CustomAlertDescription>
+            <strong>Database Test:</strong> {dbTestResult.message}
+          </CustomAlertDescription>
+        </CustomAlert>
+      )}
 
       {/* Debug Info */}
       {currentSlip && (
@@ -290,6 +329,9 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
           </div>
           <div>
             <strong>Data Source:</strong> {dataSource}
+          </div>
+          <div>
+            <strong>Person ID:</strong> {personInfo.id}
           </div>
         </div>
       )}

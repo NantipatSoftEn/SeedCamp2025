@@ -142,6 +142,22 @@ export class SupabaseStorageService {
 
       console.log("📤 File uploaded successfully, now saving to database...")
 
+      // ตรวจสอบว่า person มีอยู่ใน seedcamp_people table หรือไม่
+      const { data: personCheck, error: personCheckError } = await this.supabase
+        .from("seedcamp_people")
+        .select("id")
+        .eq("id", personId)
+        .single()
+
+      if (personCheckError || !personCheck) {
+        console.error("❌ Person not found in seedcamp_people:", personCheckError)
+        // ลบไฟล์ที่อัปโหลดแล้ว
+        await this.supabase.storage.from(this.bucketName).remove([filePath])
+        throw new Error(`Person with ID ${personId} not found in database`)
+      }
+
+      console.log("✅ Person verified in database:", personCheck)
+
       // บันทึกข้อมูลใน payment_slips table - ใช้ personId เป็น person_id
       const insertData = {
         user_id: user.id,
@@ -150,63 +166,92 @@ export class SupabaseStorageService {
         original_name: file.name,
         file_size: file.size,
         mime_type: file.type,
+        uploaded_at: new Date().toISOString(),
       }
 
       console.log("💾 Inserting payment slip record:", insertData)
 
-      const { data: paymentSlipData, error: dbError } = await this.supabase
-        .from("payment_slips")
-        .insert(insertData)
+      // ลองบันทึกข้อมูลใน payment_slips table
+      let paymentSlipData = null
+      try {
+        const { data: insertResult, error: dbError } = await this.supabase
+          .from("payment_slips")
+          .insert(insertData)
+          .select()
+          .single()
+
+        if (dbError) {
+          console.error("❌ Database insert error:", dbError)
+          console.error("❌ Insert data was:", insertData)
+
+          // ลบไฟล์ที่อัปโหลดแล้วถ้าบันทึกฐานข้อมูลล้มเหลว
+          await this.supabase.storage.from(this.bucketName).remove([filePath])
+
+          // Provide more specific error messages
+          if (dbError.message.includes("row-level security")) {
+            throw new Error(
+              `Database permission error: ${dbError.message}\n\nThis might be due to RLS policies. Please check your Supabase RLS configuration.`,
+            )
+          } else if (dbError.message.includes("foreign key")) {
+            throw new Error(`Foreign key constraint error: ${dbError.message}\n\nPerson ID ${personId} may not exist.`)
+          } else {
+            throw new Error(`Failed to save payment slip record: ${dbError.message}`)
+          }
+        }
+
+        paymentSlipData = insertResult
+        console.log("✅ Payment slip record saved:", paymentSlipData)
+      } catch (dbError) {
+        console.warn("⚠️ Could not save to payment_slips table, continuing with person update:", dbError)
+        // ถ้าบันทึก payment_slips ไม่ได้ ให้ทำต่อด้วยการอัปเดต person
+      }
+
+      // อัปเดต payment_slip เป็น path ของ image และ payment_status เป็น paid ใน seedcamp_people table
+      console.log("💾 Updating seedcamp_people table...")
+
+      const updateData = {
+        payment_status: "paid", // เปลี่ยนเป็น paid
+        payment_slip: filePath, // เก็บเฉพาะ path ของ image
+        updated_at: new Date().toISOString(),
+      }
+
+      console.log("📝 Update data for seedcamp_people:", updateData)
+
+      const { data: updateResult, error: updateError } = await this.supabase
+        .from("seedcamp_people")
+        .update(updateData)
+        .eq("id", personId)
         .select()
         .single()
 
-      if (dbError) {
-        console.error("❌ Database insert error:", dbError)
-        console.error("❌ Insert data was:", insertData)
-
-        // ลบไฟล์ที่อัปโหลดแล้วถ้าบันทึกฐานข้อมูลล้มเหลว
-        await this.supabase.storage.from(this.bucketName).remove([filePath])
-
-        // Provide more specific error messages
-        if (dbError.message.includes("row-level security")) {
-          throw new Error(
-            `Database permission error: ${dbError.message}\n\nThis might be due to RLS policies. Please check your Supabase RLS configuration.`,
-          )
-        } else {
-          throw new Error(`Failed to save payment slip record: ${dbError.message}`)
-        }
-      }
-
-      console.log("✅ Payment slip record saved:", paymentSlipData)
-
-      // อัปเดต payment_slip เป็น path ของ image (ไม่ใช่ public URL) และ payment_status เป็น paid ใน seedcamp_people table
-      const { error: updateError } = await this.supabase
-        .from("seedcamp_people")
-        .update({
-          payment_status: "paid", // เปลี่ยนเป็น paid
-          payment_slip: filePath, // เก็บเฉพาะ path ของ image (เช่น "public/seedcamp2025/filename.jpg")
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", personId)
-
       if (updateError) {
         console.error("❌ Failed to update payment status:", updateError)
-        console.warn("⚠️ Payment slip uploaded but payment status not updated")
+        console.error("❌ Update data was:", updateData)
+        console.error("❌ Person ID was:", personId)
+
+        // ลบไฟล์และ payment_slips record ถ้าอัปเดต person ล้มเหลว
+        await this.supabase.storage.from(this.bucketName).remove([filePath])
+        if (paymentSlipData) {
+          await this.supabase.from("payment_slips").delete().eq("id", paymentSlipData.id)
+        }
+
+        throw new Error(`Failed to update person payment status: ${updateError.message}`)
       } else {
         console.log("✅ Payment status updated to 'paid' and payment_slip path saved:", filePath)
+        console.log("✅ Updated person data:", updateResult)
       }
 
       console.log("✅ Upload completed successfully:", {
         path: data.path,
         url: urlData.publicUrl,
-        paymentSlipId: paymentSlipData.id,
+        paymentSlipId: paymentSlipData?.id || "not-saved",
         savedPath: filePath, // path ที่เก็บใน database
       })
 
       return {
         url: urlData.publicUrl,
-        path: data.path,
-        paymentSlipId: paymentSlipData.id,
+        path: filePath, // return path แทน data.path
+        paymentSlipId: paymentSlipData?.id || "not-saved",
       }
     } catch (error) {
       console.error("❌ Error uploading payment slip:", error)
@@ -238,21 +283,10 @@ export class SupabaseStorageService {
 
       console.log("🗑️ Deleting payment slip:", filePath)
 
-      // ลบข้อมูลจาก payment_slips table ก่อน
+      // อัปเดต seedcamp_people table ก่อน - เซ็ต payment_status เป็น unpaid และลบ payment_slip
       if (personId) {
-        const { error: dbError } = await this.supabase
-          .from("payment_slips")
-          .delete()
-          .eq("person_id", personId)
-          .eq("path", filePath)
+        console.log("💾 Updating seedcamp_people table to unpaid...")
 
-        if (dbError) {
-          console.warn("⚠️ Could not delete payment slip record:", dbError.message)
-        } else {
-          console.log("✅ Payment slip record deleted from database")
-        }
-
-        // อัปเดต seedcamp_people table - เซ็ต payment_status เป็น unpaid และลบ payment_slip
         const { error: updateError } = await this.supabase
           .from("seedcamp_people")
           .update({
@@ -264,8 +298,22 @@ export class SupabaseStorageService {
 
         if (updateError) {
           console.error("❌ Failed to update payment status after deletion:", updateError)
+          throw new Error(`Failed to update person payment status: ${updateError.message}`)
         } else {
           console.log("✅ Payment status updated to 'unpaid' and payment_slip cleared")
+        }
+
+        // ลบข้อมูลจาก payment_slips table
+        const { error: dbError } = await this.supabase
+          .from("payment_slips")
+          .delete()
+          .eq("person_id", personId)
+          .eq("path", filePath)
+
+        if (dbError) {
+          console.warn("⚠️ Could not delete payment slip record:", dbError.message)
+        } else {
+          console.log("✅ Payment slip record deleted from database")
         }
       }
 
@@ -355,6 +403,46 @@ export class SupabaseStorageService {
 
     // ถ้าเป็น path ให้แปลงเป็น public URL
     return this.getPublicUrl(paymentSlipPath)
+  }
+
+  // ฟังก์ชันทดสอบการเชื่อมต่อ database
+  async testDatabaseConnection(): Promise<{ success: boolean; message: string }> {
+    try {
+      const { user } = await this.ensureAuthenticated()
+
+      // ทดสอบการอ่านข้อมูลจาก seedcamp_people
+      const { data: peopleData, error: peopleError } = await this.supabase
+        .from("seedcamp_people")
+        .select("id, nick_name")
+        .limit(1)
+
+      if (peopleError) {
+        return {
+          success: false,
+          message: `Cannot read seedcamp_people table: ${peopleError.message}`,
+        }
+      }
+
+      // ทดสอบการอ่านข้อมูลจาก payment_slips
+      const { data: slipsData, error: slipsError } = await this.supabase.from("payment_slips").select("id").limit(1)
+
+      if (slipsError) {
+        return {
+          success: false,
+          message: `Cannot read payment_slips table: ${slipsError.message}`,
+        }
+      }
+
+      return {
+        success: true,
+        message: `Database connection successful. User: ${user.email}, People: ${peopleData?.length || 0}, Slips: ${slipsData?.length || 0}`,
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `Database connection failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+      }
+    }
   }
 }
 
