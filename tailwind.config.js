@@ -19,9 +19,12 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        sarabun: ["Sarabun", "sans-serif"],
+        prompt: ["Prompt", "sans-serif"],
         sans: [
+          "Prompt",
           "Sarabun",
+          "Kanit",
+          "Noto Sans Thai",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
