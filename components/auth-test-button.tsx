@@ -14,6 +14,13 @@ export function AuthTestButton() {
   const { toast } = useToast()
   const { user } = useAuth()
 
+  // Check if user is admin
+  const isAdmin = user?.email === "admin@seedbkk.org"
+
+  if (!isAdmin) {
+    return null
+  }
+
   const testAuthAndRLS = async () => {
     setTesting(true)
     try {

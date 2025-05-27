@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2, Upload, CheckCircle, AlertCircle } from "lucide-react"
 
@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress"
 import { getSupabaseBrowserClient } from "@/lib/supabase"
 import type { Person } from "@/types/person"
 import { ProtectedRoute } from "@/components/protected-route"
+import { useAuth } from "@/contexts/auth-context"
 
 type ImportStatus = "idle" | "uploading" | "processing" | "success" | "error"
 
@@ -22,6 +23,34 @@ export default function ImportPage() {
   const [message, setMessage] = useState("")
   const [stats, setStats] = useState({ total: 0, success: 0, error: 0 })
   const router = useRouter()
+  const { user } = useAuth()
+
+  // Check if user is admin
+  const isAdmin = user?.email === "admin@seedbkk.org"
+
+  // Redirect if not admin
+  useEffect(() => {
+    if (user && !isAdmin) {
+      router.push("/")
+    }
+  }, [user, isAdmin, router])
+
+  // Don't render if not admin
+  if (!user || !isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 text-center">
+            <h2 className="text-xl font-bold mb-2">Access Denied</h2>
+            <p className="text-gray-600 mb-4">This page is only accessible to administrators.</p>
+            <Button onClick={() => router.push("/")} className="w-full">
+              Go to Dashboard
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {

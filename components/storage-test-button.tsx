@@ -6,11 +6,21 @@ import { Badge } from "@/components/ui/badge"
 import { TestTube, Loader2, CheckCircle, XCircle } from "lucide-react"
 import { supabaseStorage } from "@/lib/supabase-storage"
 import { useToast } from "@/components/ui/use-toast"
+import { useAuth } from "@/contexts/auth-context"
 
 export function StorageTestButton() {
   const [testing, setTesting] = useState(false)
   const [lastTestResult, setLastTestResult] = useState<"success" | "error" | null>(null)
   const { toast } = useToast()
+  const { user } = useAuth()
+
+  // Check if user is admin
+  const isAdmin = user?.email === "admin@seedbkk.org"
+
+  // Don't render if not admin
+  if (!isAdmin) {
+    return null
+  }
 
   const testStorage = async () => {
     setTesting(true)
