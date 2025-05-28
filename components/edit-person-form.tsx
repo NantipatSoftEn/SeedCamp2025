@@ -99,9 +99,9 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
     } else if (!/^[0-9-+\s()]+$/.test(formData.phone)) {
       newErrors.phone = "Invalid phone format"
     }
-    if (formData.payment_amount <= 0) {
-      newErrors.payment_amount = Number.POSITIVE_INFINITY
-    }
+    // if (formData.payment_amount <= 0) {
+    //   newErrors.payment_amount = Number.POSITIVE_INFINITY
+    // }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
