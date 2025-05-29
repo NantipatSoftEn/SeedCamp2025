@@ -99,16 +99,16 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
     } else if (!/^[0-9-+\s()]+$/.test(formData.phone)) {
       newErrors.phone = "Invalid phone format"
     }
-    // if (formData.payment_amount <= 0) {
-    //   newErrors.payment_amount = Number.POSITIVE_INFINITY
-    // }
+    // Updated validation: allow zero payment amounts, only reject negative amounts
+    if (formData.payment_amount < 0) {
+      newErrors.payment_amount = Number.POSITIVE_INFINITY
+    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    console.log("📝 Form submitted with data:", formData)
     e.preventDefault()
 
     if (!person) {

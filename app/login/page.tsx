@@ -114,8 +114,8 @@ export default function LoginPage() {
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup" disabled>Signup</TabsTrigger>
-              <TabsTrigger value="reset" disabled>Reset</TabsTrigger>
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              <TabsTrigger value="reset">Reset</TabsTrigger>
             </TabsList>
 
             {/* Sign In Tab */}
@@ -294,8 +294,8 @@ export default function LoginPage() {
 
         <CardFooter className="text-center">
           <div className="text-sm text-gray-600">
-            <p>example</p>
-            <p className="font-mono text-xs">your_user@seedchurchbkk.org</p>
+            <p>Demo credentials for testing:</p>
+            <p className="font-mono text-xs">admin@seedcamp.com / password123</p>
           </div>
         </CardFooter>
       </Card>
