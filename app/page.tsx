@@ -1,35 +1,93 @@
+"use client"
+
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { FileText } from "lucide-react"
+import { BarChart3, Users, Upload } from "lucide-react"
 import Link from "next/link"
 
-export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          SeedCamp 2025
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          {/* User Menu */}
-        </div>
-      </div>
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-3xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-900 after:via-[#0141ff] after:blur-2xl after:content-[''] dark:before:bg-gradient-radial dark:before:from-white dark:before:to-transparent dark:after:from-[#0141ff] dark:after:via-[#0141ff] dark:after:opacity-40 before:lg:h-[360px]">
-        {/* Documentation Link */}
-        <Button variant="ghost" asChild className="hidden md:flex">
-          <Link href="/docs" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            เอกสารการใช้งานระบบ SeedCamp 2025
-          </Link>
-        </Button>
+import PeopleDashboard from "../dashboard"
+import AnalyticsDashboard from "../analytics-dashboard"
+import { DataSourceToggle } from "@/components/data-source-toggle"
+import { DebugPanel } from "@/components/debug-panel"
+import { SupabaseTestButton } from "@/components/supabase-test-button"
+import { EditDebugPanel } from "@/components/edit-debug-panel"
+import { StorageTestButton } from "@/components/storage-test-button"
+import { ProtectedRoute } from "@/components/protected-route"
+import { UserMenu } from "@/components/user-menu"
+import { AuthTestButton } from "@/components/auth-test-button"
+import { RLSDebugPanel } from "@/components/rls-debug-panel"
+import { useAuth } from "@/contexts/auth-context"
+import { DocsModal } from "@/components/docs-modal"
 
-        {/* Mobile Documentation Link */}
-        <Button variant="ghost" size="sm" asChild className="md:hidden">
-          <Link href="/docs" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            เอกสาร
-          </Link>
-        </Button>
+export default function Page() {
+  const [currentView, setCurrentView] = useState<"people" | "analytics">("people")
+  const { user } = useAuth()
+
+  // Check if user is admin
+  const isAdmin = user?.email === "admin@seedbkk.org"
+
+  return (
+    <ProtectedRoute>
+      <div className="min-h-screen">
+        {/* Navigation */}
+        <div className="bg-white dark:bg-gray-800 border-b sticky top-0 z-10">
+          <div className="container mx-auto p-4">
+            <div className="flex items-center justify-between">
+              <h1 className="text-xl font-bold">SeedCamp Management</h1>
+              <div className="flex gap-2 items-center">
+                <Button
+                  variant={currentView === "people" ? "default" : "outline"}
+                  onClick={() => setCurrentView("people")}
+                  className="flex items-center gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  <span className="hidden sm:inline">People Dashboard</span>
+                  <span className="sm:hidden">People</span>
+                </Button>
+                <Button
+                  variant={currentView === "analytics" ? "default" : "outline"}
+                  onClick={() => setCurrentView("analytics")}
+                  className="flex items-center gap-2"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Analytics Dashboard</span>
+                  <span className="sm:hidden">Analytics</span>
+                </Button>
+
+                {/* เพิ่ม DocsModal ตรงนี้ */}
+                <DocsModal />
+
+                {/* Admin-only buttons */}
+                {isAdmin && (
+                  <>
+                    <Button variant="outline" asChild>
+                      <Link href="/import" className="flex items-center gap-2">
+                        <Upload className="h-4 w-4" />
+                        <span className="hidden sm:inline">Import Data</span>
+                        <span className="sm:hidden">Import</span>
+                      </Link>
+                    </Button>
+                    <SupabaseTestButton />
+                    <StorageTestButton />
+                    <AuthTestButton />
+                    <DataSourceToggle />
+                  </>
+                )}
+
+                <UserMenu />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        {currentView === "people" ? <PeopleDashboard /> : <AnalyticsDashboard />}
+
+        {/* Debug Panels - แสดงเฉพาะใน development */}
+        <DebugPanel />
+        <EditDebugPanel />
+        <RLSDebugPanel />
       </div>
-    </main>
+    </ProtectedRoute>
   )
 }
