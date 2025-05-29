@@ -111,7 +111,7 @@ export class SupabaseStorageService {
       // สร้างชื่อไฟล์
       const fileExtension = file.name.split(".").pop()?.toLowerCase() || "jpg"
       const fileName = this.generateFileName(personId, fileExtension)
-      const filePath = `public/seedcamp2025/${fileName}`
+      const filePath = `seedcamp2025/${fileName}`
 
       console.log("📝 Upload details:", {
         fileName,
@@ -135,7 +135,7 @@ export class SupabaseStorageService {
 
       // ดึง public URL
       const { data: urlData } = this.supabase.storage.from(this.bucketName).getPublicUrl(filePath)
-
+      console.log("🔗 Public URL generated:", urlData)
       if (!urlData.publicUrl) {
         throw new Error("Could not generate public URL for uploaded file")
       }
