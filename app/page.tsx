@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { BarChart3, Users, Upload, FileText } from "lucide-react"
+import { BarChart3, Users, Upload } from "lucide-react"
 import Link from "next/link"
 
 import PeopleDashboard from "../dashboard"
@@ -17,6 +17,7 @@ import { UserMenu } from "@/components/user-menu"
 import { AuthTestButton } from "@/components/auth-test-button"
 import { RLSDebugPanel } from "@/components/rls-debug-panel"
 import { useAuth } from "@/contexts/auth-context"
+import { DocsModal } from "@/components/docs-modal"
 
 export default function Page() {
   const [currentView, setCurrentView] = useState<"people" | "analytics">("people")
@@ -53,19 +54,8 @@ export default function Page() {
                   <span className="sm:hidden">Analytics</span>
                 </Button>
 
-                <Button
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  onClick={() => {
-                    // เปิดเอกสารการใช้งานในแท็บใหม่
-                    window.open("/docs", "_blank")
-                  }}
-                  title="เอกสารการใช้งาน - อ่านก่อนใช้ระบบ"
-                >
-                  <FileText className="h-4 w-4" />
-                  <span className="hidden sm:inline">เอกสารการใช้งาน</span>
-                  <span className="sm:hidden">คู่มือ</span>
-                </Button>
+                {/* เพิ่ม DocsModal ตรงนี้ */}
+                <DocsModal />
 
                 {/* Admin-only buttons */}
                 {isAdmin && (
