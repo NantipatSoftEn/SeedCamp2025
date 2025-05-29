@@ -369,7 +369,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
                   onCheckedChange={(checked) => handleInputChange("can_go", checked)}
                   disabled={isSaving}
                 />
-                <Label htmlFor="can_go">Can go to the event</Label>
+                <Label htmlFor="can_go">สามารถไปค่ายได้ to the event</Label>
               </div>
 
               <div className="space-y-2">

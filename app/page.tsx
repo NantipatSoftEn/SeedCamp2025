@@ -53,7 +53,7 @@ export default function Page() {
                   <span className="sm:hidden">Analytics</span>
                 </Button>
 
-                <Button
+                {/* <Button
                   variant="outline"
                   className="flex items-center gap-2"
                   onClick={() => {
@@ -65,7 +65,7 @@ export default function Page() {
                   <FileText className="h-4 w-4" />
                   <span className="hidden sm:inline">เอกสารการใช้งาน</span>
                   <span className="sm:hidden">คู่มือ</span>
-                </Button>
+                </Button> */}
 
                 {/* Admin-only buttons */}
                 {isAdmin && (

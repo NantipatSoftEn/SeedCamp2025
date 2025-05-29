@@ -223,7 +223,7 @@ export default function PeopleDashboard() {
               <div className="flex items-center space-x-2">
                 <div className="h-5 w-5 bg-blue-600 rounded-full" />
                 <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Can Go</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">สามารถไปค่ายได้</p>
                   <p className="text-2xl font-bold">{canGoCount}</p>
                 </div>
               </div>
@@ -334,7 +334,7 @@ export default function PeopleDashboard() {
                                           {person.payment_status}
                                         </Badge>
                                         <Badge variant={person.can_go ? "default" : "destructive"}>
-                                          {person.can_go ? "Can Go" : "Cannot Go"}
+                                          {person.can_go ? "สามารถไปค่ายได้" : "Cannot Go"}
                                         </Badge>
                                       </div>
                                       {person.remark && <p className="text-gray-600 text-xs mt-2">{person.remark}</p>}
@@ -358,7 +358,7 @@ export default function PeopleDashboard() {
                                       <TableHead className="min-w-[100px]">Amount</TableHead>
                                       <TableHead className="min-w-[80px]">Shirt Size</TableHead>
                                       <TableHead className="min-w-[100px]">Payment</TableHead>
-                                      <TableHead className="min-w-[80px]">Can Go</TableHead>
+                                      <TableHead className="min-w-[80px]">สามารถไปค่ายได้</TableHead>
                                       <TableHead className="min-w-[150px]">Remark</TableHead>
                                       <TableHead className="min-w-[100px] text-center sticky right-0 bg-white dark:bg-gray-800">
                                         Actions
