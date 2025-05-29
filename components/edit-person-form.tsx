@@ -331,7 +331,7 @@ export function EditPersonForm({ person, isOpen, onClose, onSave }: EditPersonFo
                     className={errors.payment_amount ? "border-red-500" : ""}
                     disabled={isSaving}
                   />
-                  {errors.payment_amount && <p className="text-sm text-red-500">{errors.payment_amount}</p>}
+                  {errors.payment_amount && <p className="text-sm text-red-500">Payment amount cannot be negative</p>}
                 </div>
 
                 <div className="space-y-2">
