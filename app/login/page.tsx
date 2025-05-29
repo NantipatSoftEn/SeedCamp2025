@@ -372,10 +372,10 @@ export default function LoginPage() {
                   </ul>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                {/* <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h3 className="font-semibold text-blue-800 mb-2">📞 ติดต่อสอบถาม</h3>
                   <p className="text-blue-700">หากมีปัญหาการใช้งาน กรุณาติดต่อทีมผู้ดูแลระบบ SeedCamp 2025</p>
-                </div>
+                </div> */}
               </div>
 
               <div className="mt-6 flex justify-end">

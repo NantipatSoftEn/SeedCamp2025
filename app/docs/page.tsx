@@ -99,7 +99,7 @@ export default function DocsPage() {
                   <strong>จำนวนเงิน:</strong> ยอดที่ต้องชำระ (สามารถเป็น 0 ได้)
                 </li>
                 <li>
-                  <strong>โรคประจำตัว:</strong> สำหรับการดูแลเฉพาะ
+                  <strong>remark (หมายเหตุ):</strong>  เช่นไปไม่ได้เพราะ... โรคประจำตัว etc.
                 </li>
               </ul>
             </CardContent>
@@ -132,40 +132,8 @@ export default function DocsPage() {
             </CardContent>
           </Card>
 
-          {/* ฟีเจอร์สำหรับ Admin */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Upload className="h-5 w-5" />
-                ฟีเจอร์สำหรับผู้ดูแลระบบ (Admin)
-              </CardTitle>
-              <CardDescription>เฉพาะบัญชี admin@seedbkk.org เท่านั้น</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <h4 className="font-semibold">Import Data:</h4>
-              <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>นำเข้าข้อมูลจากไฟล์ CSV</li>
-                <li>ตรวจสอบรูปแบบไฟล์ให้ถูกต้อง</li>
-                <li>ระวังการเขียนทับข้อมูลเดิม</li>
-              </ul>
-
-              <h4 className="font-semibold">ปุ่มทดสอบระบบ:</h4>
-              <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>
-                  <strong>Test Supabase:</strong> ทดสอบการเชื่อมต่อฐานข้อมูล
-                </li>
-                <li>
-                  <strong>Test Storage:</strong> ทดสอบการอัปโหลดไฟล์
-                </li>
-                <li>
-                  <strong>AuthTest:</strong> ทดสอบระบบยืนยันตัวตน
-                </li>
-                <li>
-                  <strong>Live:</strong> สลับระหว่างข้อมูลจริงและข้อมูลทดสอบ
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
+    
+       
 
           {/* ข้อควรระวัง */}
           <Card className="border-red-200">
@@ -180,39 +148,15 @@ export default function DocsPage() {
                 <h4 className="font-semibold text-red-800 mb-2">ข้อควรระวัง:</h4>
                 <ul className="list-disc list-inside space-y-1 ml-4 text-red-700">
                   <li>ตรวจสอบข้อมูลให้ถูกต้องก่อนบันทึก</li>
-                  <li>อย่าลบข้อมูลโดยไม่จำเป็น</li>
-                  <li>สำรองข้อมูลสำคัญเป็นประจำ</li>
-                  <li>ไม่แชร์รหัสผ่านกับผู้อื่น</li>
-                  <li>ออกจากระบบเมื่อใช้งานเสร็จ</li>
+                
                 </ul>
               </div>
 
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h4 className="font-semibold text-green-800 mb-2">แนวปฏิบัติที่ดี:</h4>
-                <ul className="list-disc list-inside space-y-1 ml-4 text-green-700">
-                  <li>ตรวจสอบข้อมูลซ้ำก่อนบันทึก</li>
-                  <li>ใช้ฟีเจอร์ค้นหาเพื่อหาข้อมูลเร็วขึ้น</li>
-                  <li>อัปเดตสถานะการชำระเงินให้เป็นปัจจุบัน</li>
-                  <li>ตรวจสอบสลิปการชำระเงินก่อนอนุมัติ</li>
-                  <li>ใช้ Analytics เพื่อติดตามความคืบหน้า</li>
-                </ul>
-              </div>
+             
             </CardContent>
           </Card>
 
-          {/* ติดต่อสอบถาม */}
-          <Card>
-            <CardHeader>
-              <CardTitle>ติดต่อสอบถาม</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>หากมีปัญหาหรือข้อสงสัยในการใช้งานระบบ กรุณาติดต่อ:</p>
-              <ul className="list-disc list-inside space-y-1 ml-4 mt-2">
-                <li>ทีมพัฒนาระบบ SeedCamp 2025</li>
-                <li>อีเมล: admin@seedbkk.org</li>
-              </ul>
-            </CardContent>
-          </Card>
+         
         </div>
 
         {/* ปุ่มกลับ */}

@@ -103,7 +103,7 @@ export function DocsModal() {
                     <strong>จำนวนเงิน:</strong> ยอดที่ต้องชำระ (สามารถเป็น 0 ได้)
                   </li>
                   <li>
-                    <strong>โรคประจำตัว:</strong> สำหรับการดูแลเฉพาะ
+                    <strong>โรคประจำตัว:</strong>  เช่นไปไม่ได้เพราะ... โรคประจำตัว etc.
                   </li>
                 </ul>
               </CardContent>
@@ -137,7 +137,7 @@ export function DocsModal() {
             </Card>
 
             {/* ฟีเจอร์สำหรับ Admin */}
-            <Card>
+            {/* <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Upload className="h-5 w-5" />
@@ -169,10 +169,10 @@ export function DocsModal() {
                   </li>
                 </ul>
               </CardContent>
-            </Card>
+            </Card> */}
 
             {/* ข้อควรระวัง */}
-            <Card className="border-red-200">
+            {/* <Card className="border-red-200">
               <CardHeader>
                 <CardTitle className="text-red-600 flex items-center gap-2">
                   <AlertCircle className="h-5 w-5" />
@@ -202,10 +202,10 @@ export function DocsModal() {
                   </ul>
                 </div>
               </CardContent>
-            </Card>
+            </Card> */}
 
             {/* ติดต่อสอบถาม */}
-            <Card>
+            {/* <Card>
               <CardHeader>
                 <CardTitle>ติดต่อสอบถาม</CardTitle>
               </CardHeader>
@@ -216,7 +216,7 @@ export function DocsModal() {
                   <li>อีเมล: admin@seedbkk.org</li>
                 </ul>
               </CardContent>
-            </Card>
+            </Card> */}
           </div>
         </ScrollArea>
         <div className="flex justify-end mt-4">
