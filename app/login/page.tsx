@@ -114,8 +114,8 @@ export default function LoginPage() {
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup" disabled>Signup</TabsTrigger>
-              <TabsTrigger value="reset" disabled>Reset</TabsTrigger>
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              <TabsTrigger value="reset">Reset</TabsTrigger>
             </TabsList>
 
             {/* Sign In Tab */}
