@@ -294,8 +294,8 @@ export default function LoginPage() {
 
         <CardFooter className="text-center">
           <div className="text-sm text-gray-600">
-            <p>Demo credentials for testing:</p>
-            <p className="font-mono text-xs">admin@seedcamp.com / password123</p>
+            <p>example:bonus@seedchurchbkk.org</p>
+            <p className="font-mono text-xs">nick_name@seedchurchbkk.org</p>
           </div>
         </CardFooter>
       </Card>

@@ -233,7 +233,7 @@ export default function AnalyticsDashboard() {
                           <th className="text-left p-2">Group</th>
                           <th className="text-center p-2">Total</th>
                           <th className="text-center p-2">Paid</th>
-                          <th className="text-center p-2">Can Go</th>
+                          <th className="text-center p-2">สามารถไปค่ายได้</th>
                           <th className="text-center p-2">Expected Money</th>
                           <th className="text-center p-2">Collected Money</th>
                           <th className="text-center p-2">Payment Rate</th>
@@ -327,7 +327,7 @@ export default function AnalyticsDashboard() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-500" />
-                      <span className="text-sm">Can Go</span>
+                      <span className="text-sm">สามารถไปค่ายได้</span>
                     </div>
                     <div className="text-right">
                       <p className="font-medium">{analytics.attendanceStats.canGo}</p>
