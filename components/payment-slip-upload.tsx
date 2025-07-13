@@ -1,14 +1,14 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useRef, useEffect } from "react"
-import { Upload, X, Eye, Loader2, Database } from "lucide-react"
+import { useState, useRef, useEffect } from "react";
+import { Upload, X, Eye, Loader2, Database } from "lucide-react";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Progress } from "@/components/ui/progress"
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -16,318 +16,363 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 
-import { supabaseStorage } from "@/lib/supabase-storage"
-import { useDataSource } from "@/contexts/data-source-context"
-import { useAuth } from "@/contexts/auth-context"
-import { CustomAlert, CustomAlertDescription } from "./custom-alert"
+import { supabaseStorage } from "@/lib/supabase-storage";
+import { useDataSource } from "@/contexts/data-source-context";
+import { useAuth } from "@/contexts/auth-context";
+import { CustomAlert, CustomAlertDescription } from "./custom-alert";
 
 interface PaymentSlipUploadProps {
-  currentSlip?: string
-  onSlipChange: (slip: string | undefined) => void
+  currentSlip?: string;
+  onSlipChange: (slip: string | undefined) => void;
   personInfo: {
-    nickname: string
-    firstName: string
-    lastName: string
-    id: string
-  }
+    nickname: string;
+    firstName: string;
+    lastName: string;
+    id: string;
+  };
 }
 
-export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: PaymentSlipUploadProps) {
-  const [dragActive, setDragActive] = useState(false)
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadError, setUploadError] = useState<string | null>(null)
-  const [uploadSuccess, setUploadSuccess] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+export function PaymentSlipUpload({
+  currentSlip,
+  onSlipChange,
+  personInfo,
+}: PaymentSlipUploadProps) {
+  const [dragActive, setDragActive] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [paymentSlips, setPaymentSlips] = useState<
     Array<{
-      id: string
-      url: string
-      path: string
-      originalName: string
-      uploadedAt: string
+      id: string;
+      url: string;
+      path: string;
+      originalName: string;
+      uploadedAt: string;
     }>
-  >([])
-  const [dbTestResult, setDbTestResult] = useState<{ success: boolean; message: string } | null>(null)
-  const [testing, setTesting] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const { dataSource } = useDataSource()
-  const { user } = useAuth()
+  >([]);
+  const [dbTestResult, setDbTestResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+  const [testing, setTesting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { dataSource } = useDataSource();
+  const { user } = useAuth();
 
   // โหลดข้อมูล payment slips เมื่อ component mount
   useEffect(() => {
     if (dataSource === "supabase") {
-      loadPaymentSlips()
+      loadPaymentSlips();
     }
-  }, [dataSource, personInfo.id])
+  }, [dataSource, personInfo.id]);
 
   const loadPaymentSlips = async () => {
     if (dataSource === "supabase" && personInfo.id) {
       try {
-        const slips = await supabaseStorage.getPersonPaymentSlips(personInfo.id)
-        setPaymentSlips(slips)
+        const slips = await supabaseStorage.getPersonPaymentSlips(
+          personInfo.id
+        );
+        setPaymentSlips(slips);
 
         // ถ้ามี payment slip ล่าสุด ให้ใช้เป็น current slip
         if (slips.length > 0 && !currentSlip) {
-          onSlipChange(slips[0].path) // ใช้ path แทน URL
+          onSlipChange(slips[0].path); // ใช้ path แทน URL
         }
       } catch (error) {
-        console.error("Failed to load payment slips:", error)
+        console.error("Failed to load payment slips:", error);
       }
     }
-  }
+  };
 
   const testDatabaseConnection = async () => {
-    setTesting(true)
+    setTesting(true);
     try {
-      const result = await supabaseStorage.testDatabaseConnection()
-      setDbTestResult(result)
+      const result = await supabaseStorage.testDatabaseConnection();
+      setDbTestResult(result);
     } catch (error) {
       setDbTestResult({
         success: false,
-        message: `Test failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      })
+        message: `Test failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      });
     } finally {
-      setTesting(false)
+      setTesting(false);
     }
-  }
+  };
 
   const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault();
+    e.stopPropagation();
     if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true)
+      setDragActive(true);
     } else if (e.type === "dragleave") {
-      setDragActive(false)
+      setDragActive(false);
     }
-  }
+  };
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0])
+      handleFile(e.dataTransfer.files[0]);
     }
-  }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault()
+    e.preventDefault();
     if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0])
+      handleFile(e.target.files[0]);
     }
-  }
+  };
 
   const handleFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
-      setUploadError("Please select an image file")
-      return
+      setUploadError("Please select an image file");
+      return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
-      setUploadError("File size must be less than 10MB")
-      return
+      setUploadError("File size must be less than 10MB");
+      return;
     }
 
-    setUploadError(null)
-    setUploadSuccess(false)
-    setDbTestResult(null) // Clear previous test results
+    setUploadError(null);
+    setUploadSuccess(false);
+    setDbTestResult(null); // Clear previous test results
 
     if (dataSource === "mock") {
       // Mock mode - convert to base64
-      const reader = new FileReader()
+      const reader = new FileReader();
       reader.onload = (e) => {
-        const result = e.target?.result as string
-        onSlipChange(result)
-        setUploadSuccess(true)
-        setTimeout(() => setUploadSuccess(false), 3000)
-      }
-      reader.readAsDataURL(file)
-      return
+        const result = e.target?.result as string;
+        onSlipChange(result);
+        setUploadSuccess(true);
+        setTimeout(() => setUploadSuccess(false), 3000);
+      };
+      reader.readAsDataURL(file);
+      return;
     }
 
     // Supabase mode - upload to storage และบันทึกใน database
-    setUploading(true)
-    setUploadProgress(0)
+    setUploading(true);
+    setUploadProgress(0);
 
     try {
       // Simulate progress
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => {
           if (prev >= 90) {
-            clearInterval(progressInterval)
-            return 90
+            clearInterval(progressInterval);
+            return 90;
           }
-          return prev + 10
-        })
-      }, 200)
+          return prev + 10;
+        });
+      }, 200);
 
       // Delete old file if exists
-      if (currentSlip && (currentSlip.includes("supabase") || currentSlip.includes("public/"))) {
-        console.log("🗑️ Deleting old file before upload...")
-        await supabaseStorage.deletePaymentSlip(currentSlip, personInfo.id)
+      if (
+        currentSlip &&
+        (currentSlip.includes("supabase") || currentSlip.includes("public/"))
+      ) {
+        console.log("🗑️ Deleting old file before upload...");
+        await supabaseStorage.deletePaymentSlip(currentSlip, personInfo.id);
       }
 
       // Upload new file - ส่ง person_id เป็น id ของ seedcamp_people table
-      console.log("📤 Starting upload for person ID:", personInfo.id)
+      console.log("📤 Starting upload for person ID:", personInfo.id);
       const result = await supabaseStorage.uploadPaymentSlip(
         file,
         personInfo.nickname,
         personInfo.firstName,
         personInfo.lastName,
-        personInfo.id, // ส่ง id ของ seedcamp_people table เป็น person_id
-      )
+        personInfo.id // ส่ง id ของ seedcamp_people table เป็น person_id
+      );
 
-      clearInterval(progressInterval)
-      setUploadProgress(100)
+      clearInterval(progressInterval);
+      setUploadProgress(100);
 
       if (result) {
         // ใช้ path แทน public URL สำหรับ currentSlip
-        onSlipChange(result.path)
-        setUploadSuccess(true)
-        setTimeout(() => setUploadSuccess(false), 3000)
+        onSlipChange(result.path);
+        setUploadSuccess(true);
+        setTimeout(() => setUploadSuccess(false), 3000);
 
         // โหลดข้อมูล payment slips ใหม่
-        await loadPaymentSlips()
+        await loadPaymentSlips();
 
-        console.log("✅ Payment slip uploaded successfully:", result)
-        console.log("💰 Payment status updated to 'paid' and payment_slip path saved")
+        console.log("✅ Payment slip uploaded successfully:", result);
+        console.log(
+          "💰 Payment status updated to 'paid' and payment_slip path saved"
+        );
       } else {
-        throw new Error("Upload failed - no result returned")
+        throw new Error("Upload failed - no result returned");
       }
     } catch (error) {
-      console.error("❌ Upload failed:", error)
-      const errorMessage = error instanceof Error ? error.message : "Upload failed"
+      console.error("❌ Upload failed:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Upload failed";
 
       // Handle specific authentication errors
-      if (errorMessage.includes("Authentication required") || errorMessage.includes("logged in")) {
-        setUploadError(`${errorMessage}\n\nPlease make sure you are logged in and try again.`)
-      } else if (errorMessage.includes("bucket")) {
-        setUploadError(`${errorMessage}\n\nTip: Check your Supabase Storage setup in the database.`)
-      } else if (errorMessage.includes("row-level security") || errorMessage.includes("RLS")) {
+      if (
+        errorMessage.includes("Authentication required") ||
+        errorMessage.includes("logged in")
+      ) {
         setUploadError(
-          `${errorMessage}\n\nTip: Check your Supabase RLS policies for payment_slips and seedcamp_people tables.`,
-        )
+          `${errorMessage}\n\nPlease make sure you are logged in and try again.`
+        );
+      } else if (errorMessage.includes("bucket")) {
+        setUploadError(
+          `${errorMessage}\n\nTip: Check your Supabase Storage setup in the database.`
+        );
+      } else if (
+        errorMessage.includes("row-level security") ||
+        errorMessage.includes("RLS")
+      ) {
+        setUploadError(
+          `${errorMessage}\n\nTip: Check your Supabase RLS policies for payment_slips and seedcamp_people tables.`
+        );
       } else if (errorMessage.includes("foreign key")) {
-        setUploadError(`${errorMessage}\n\nTip: Person ID ${personInfo.id} may not exist in the database.`)
+        setUploadError(
+          `${errorMessage}\n\nTip: Person ID ${personInfo.id} may not exist in the database.`
+        );
       } else {
-        setUploadError(errorMessage)
+        setUploadError(errorMessage);
       }
     } finally {
-      setUploading(false)
-      setUploadProgress(0)
+      setUploading(false);
+      setUploadProgress(0);
     }
-  }
+  };
 
   const removeSlip = async () => {
     if (dataSource === "mock") {
       // Mock mode - just clear the slip
-      onSlipChange(undefined)
+      onSlipChange(undefined);
       if (fileInputRef.current) {
-        fileInputRef.current.value = ""
+        fileInputRef.current.value = "";
       }
-      setUploadError(null)
-      setUploadSuccess(false)
-      return
+      setUploadError(null);
+      setUploadSuccess(false);
+      return;
     }
 
     // Supabase mode - delete all payment slips for this person
-    setDeleting(true)
-    setUploadError(null)
+    setDeleting(true);
+    setUploadError(null);
 
     try {
-      console.log("🗑️ Deleting all payment slips for person:", personInfo.id)
+      console.log("🗑️ Deleting all payment slips for person:", personInfo.id);
 
       // ลบข้อมูล payment slips ทั้งหมดของ person นี้
-      const success = await supabaseStorage.deleteAllPaymentSlipsForPerson(personInfo.id)
+      const success = await supabaseStorage.deleteAllPaymentSlipsForPerson(
+        personInfo.id
+      );
 
       if (success) {
         // Clear current slip
-        onSlipChange(undefined)
+        onSlipChange(undefined);
         if (fileInputRef.current) {
-          fileInputRef.current.value = ""
+          fileInputRef.current.value = "";
         }
 
         // โหลดข้อมูล payment slips ใหม่ (ควรจะว่างเปล่า)
-        await loadPaymentSlips()
+        await loadPaymentSlips();
 
-        console.log("✅ All payment slips deleted successfully")
-        setUploadSuccess(true)
-        setTimeout(() => setUploadSuccess(false), 3000)
+        console.log("✅ All payment slips deleted successfully");
+        setUploadSuccess(true);
+        setTimeout(() => setUploadSuccess(false), 3000);
       } else {
-        throw new Error("Failed to delete payment slips")
+        throw new Error("Failed to delete payment slips");
       }
     } catch (error) {
-      console.error("❌ Delete failed:", error)
-      const errorMessage = error instanceof Error ? error.message : "Delete failed"
-      setUploadError(`Failed to delete payment slips: ${errorMessage}`)
+      console.error("❌ Delete failed:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Delete failed";
+      setUploadError(`Failed to delete payment slips: ${errorMessage}`);
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
-  }
+  };
 
   // ฟังก์ชันสำหรับแปลง path เป็น URL ที่ถูกต้องสำหรับแสดงรูป
   const getDisplayUrl = (pathOrUrl?: string) => {
-    if (!pathOrUrl) return "/placeholder.svg"
+    if (!pathOrUrl) return "/placeholder.svg";
 
-    console.log("🖼️ Getting display URL for:", pathOrUrl)
+    console.log("🖼️ Getting display URL for:", pathOrUrl);
 
     // ถ้าเป็น mock data (base64)
     if (dataSource === "mock" || pathOrUrl.startsWith("data:")) {
-      return pathOrUrl
+      return pathOrUrl;
     }
 
     // ถ้าเป็น full URL อยู่แล้ว
     if (pathOrUrl.startsWith("http")) {
-      console.log("✅ Already a full URL:", pathOrUrl)
-      return pathOrUrl
+      console.log("✅ Already a full URL:", pathOrUrl);
+      return pathOrUrl;
     }
 
     // ถ้าเป็น path ให้แปลงเป็น public URL
     if (pathOrUrl.includes("public/")) {
-      const publicUrl = supabaseStorage.getPublicUrl(pathOrUrl)
-      console.log("✅ Converted path to URL:", pathOrUrl, "->", publicUrl)
-      return publicUrl
+      const publicUrl = supabaseStorage.getPublicUrl(pathOrUrl);
+      // console.log("✅ Converted path to URL:", pathOrUrl, "->", publicUrl)
+      return publicUrl;
     }
 
     // fallback
-    console.warn("⚠️ Could not determine URL type, using as-is:", pathOrUrl)
-    return pathOrUrl
-  }
+    console.warn("⚠️ Could not determine URL type, using as-is:", pathOrUrl);
+    return pathOrUrl;
+  };
 
   // ฟังก์ชันสำหรับตรวจสอบว่ารูปโหลดได้หรือไม่
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget
-    const originalSrc = img.src
+    const img = e.currentTarget;
+    const originalSrc = img.src;
 
-    console.warn("❌ Image failed to load:", originalSrc)
+    console.warn("❌ Image failed to load:", originalSrc);
 
     // ถ้าเป็น path ลองแปลงเป็น URL อีกครั้ง
-    if (currentSlip && !currentSlip.startsWith("http") && currentSlip.includes("public/")) {
-      const retryUrl = supabaseStorage.getPublicUrl(currentSlip)
-      console.log("🔄 Retrying with converted URL:", retryUrl)
+    if (
+      currentSlip &&
+      !currentSlip.startsWith("http") &&
+      currentSlip.includes("public/")
+    ) {
+      const retryUrl = supabaseStorage.getPublicUrl(currentSlip);
+      console.log("🔄 Retrying with converted URL:", retryUrl);
 
       if (img.src !== retryUrl) {
-        img.src = retryUrl
-        return
+        img.src = retryUrl;
+        return;
       }
     }
 
     // ถ้ายังไม่ได้ ใช้ placeholder
-    img.src = "/placeholder.svg"
-  }
+    img.src = "/placeholder.svg";
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Label>Payment Slip Upload</Label>
         {dataSource === "supabase" && (
-          <Button size="sm" variant="outline" onClick={testDatabaseConnection} disabled={testing}>
-            {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={testDatabaseConnection}
+            disabled={testing}
+          >
+            {testing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Database className="h-4 w-4" />
+            )}
             Test DB
           </Button>
         )}
@@ -363,7 +408,9 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       {/* Upload Status Messages */}
       {uploadError && (
         <CustomAlert variant="destructive">
-          <CustomAlertDescription className="whitespace-pre-line">{uploadError}</CustomAlertDescription>
+          <CustomAlertDescription className="whitespace-pre-line">
+            {uploadError}
+          </CustomAlertDescription>
         </CustomAlert>
       )}
 
@@ -397,10 +444,13 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm">Deleting payment slips from database and storage...</span>
+            <span className="text-sm">
+              Deleting payment slips from database and storage...
+            </span>
           </div>
           <p className="text-xs text-gray-500">
-            Deleting all payment slips for person ID: {personInfo.id} ({personInfo.nickname})
+            Deleting all payment slips for person ID: {personInfo.id} (
+            {personInfo.nickname})
           </p>
         </div>
       )}
@@ -415,18 +465,28 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
                   alt="Payment slip"
                   className="w-16 h-16 object-cover rounded border"
                   onError={handleImageError}
-                  onLoad={() => console.log("✅ Image loaded successfully:", getDisplayUrl(currentSlip))}
+                  onLoad={() =>
+                    console.log(
+                      "✅ Image loaded successfully:",
+                      getDisplayUrl(currentSlip)
+                    )
+                  }
                 />
                 <div>
                   <p className="text-sm font-medium">Payment slip uploaded</p>
                   <p className="text-xs text-gray-500">
-                    {dataSource === "supabase" ? "Stored in Supabase Storage & Database" : "Mock data"}
+                    {dataSource === "supabase"
+                      ? "Stored in Supabase Storage & Database"
+                      : "Mock data"}
                   </p>
                   <p className="text-xs text-gray-400">
-                    Person ID: {personInfo.id} - {personInfo.nickname} ({personInfo.firstName} {personInfo.lastName})
+                    Person ID: {personInfo.id} - {personInfo.nickname} (
+                    {personInfo.firstName} {personInfo.lastName})
                   </p>
                   {dataSource === "supabase" && paymentSlips.length > 0 && (
-                    <p className="text-xs text-blue-600">📁 {paymentSlips.length} file(s) in database</p>
+                    <p className="text-xs text-blue-600">
+                      📁 {paymentSlips.length} file(s) in database
+                    </p>
                   )}
                 </div>
               </div>
@@ -441,7 +501,8 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
                     <DialogHeader>
                       <DialogTitle>Payment Slip Preview</DialogTitle>
                       <DialogDescription>
-                        Payment slip for {personInfo.nickname} ({personInfo.firstName} {personInfo.lastName})
+                        Payment slip for {personInfo.nickname} (
+                        {personInfo.firstName} {personInfo.lastName})
                       </DialogDescription>
                     </DialogHeader>
                     <div className="flex justify-center">
@@ -450,7 +511,9 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
                         alt="Payment slip"
                         className="max-w-full max-h-96 object-contain border rounded"
                         onError={handleImageError}
-                        onLoad={() => console.log("✅ Preview image loaded successfully")}
+                        onLoad={() =>
+                          console.log("✅ Preview image loaded successfully")
+                        }
                       />
                     </div>
                     <div className="text-xs text-gray-400 mt-2">
@@ -458,13 +521,23 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
                         <strong>Source:</strong> {currentSlip}
                       </div>
                       <div>
-                        <strong>Display URL:</strong> {getDisplayUrl(currentSlip)}
+                        <strong>Display URL:</strong>{" "}
+                        {getDisplayUrl(currentSlip)}
                       </div>
                     </div>
                   </DialogContent>
                 </Dialog>
-                <Button size="sm" variant="outline" onClick={removeSlip} disabled={uploading || deleting}>
-                  {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={removeSlip}
+                  disabled={uploading || deleting}
+                >
+                  {deleting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <X className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             </div>
@@ -473,7 +546,9 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
       ) : !uploading && !deleting ? (
         <div
           className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-            dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-gray-400"
+            dragActive
+              ? "border-blue-500 bg-blue-50"
+              : "border-gray-300 hover:border-gray-400"
           }`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -490,7 +565,8 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
           />
           <Upload className="mx-auto h-12 w-12 text-gray-400" />
           <p className="mt-2 text-sm text-gray-600">
-            <span className="font-medium">Click to upload</span> or drag and drop
+            <span className="font-medium">Click to upload</span> or drag and
+            drop
           </p>
           <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
           <p className="text-xs text-blue-600 mt-2">
@@ -516,17 +592,22 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
             <h4 className="text-sm font-medium mb-2">Payment Slip History</h4>
             <div className="space-y-2">
               {paymentSlips.slice(1).map((slip) => (
-                <div key={slip.id} className="flex items-center gap-2 text-xs text-gray-500">
+                <div
+                  key={slip.id}
+                  className="flex items-center gap-2 text-xs text-gray-500"
+                >
                   <img
                     src={slip.url || "/placeholder.svg"}
                     alt="Previous slip"
                     className="w-8 h-8 object-cover rounded border"
                     onError={(e) => {
-                      e.currentTarget.src = "/placeholder.svg"
+                      e.currentTarget.src = "/placeholder.svg";
                     }}
                   />
                   <span>{slip.originalName}</span>
-                  <span>({new Date(slip.uploadedAt).toLocaleDateString()})</span>
+                  <span>
+                    ({new Date(slip.uploadedAt).toLocaleDateString()})
+                  </span>
                 </div>
               ))}
             </div>
@@ -534,5 +615,5 @@ export function PaymentSlipUpload({ currentSlip, onSlipChange, personInfo }: Pay
         </Card>
       )}
     </div>
-  )
+  );
 }
