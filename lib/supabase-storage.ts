@@ -323,7 +323,7 @@ export class SupabaseStorageService {
           .from("seedcamp_people")
           .update({
             payment_status: "unpaid", // เปลี่ยนเป็น unpaid
-            payment_slip: null, // ลบ payment_slip path
+            // payment_slip: null, // ลบ payment_slip path
             updated_at: new Date().toISOString(),
           })
           .eq("id", personId);
@@ -445,7 +445,7 @@ export class SupabaseStorageService {
         .from("seedcamp_people")
         .update({
           payment_status: "unpaid", // เปลี่ยนเป็น unpaid
-          payment_slip: null, // ลบ payment_slip path
+          // payment_slip: null, // ลบ payment_slip path
           updated_at: new Date().toISOString(),
         })
         .eq("id", personId);
