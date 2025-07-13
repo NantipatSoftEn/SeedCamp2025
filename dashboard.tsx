@@ -1,13 +1,15 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { Search, Users, Phone, Loader2 } from "lucide-react"
+import { Search, Users, Phone, Loader2, ExternalLink } from "lucide-react"
+import Link from "next/link"
 
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { useToast } from "@/components/ui/use-toast"
 
 import type { Person, PersonFormData } from "./types/person"
@@ -308,7 +310,14 @@ export default function PeopleDashboard() {
                                   <Card key={person.id} className="p-4">
                                     <div className="flex justify-between items-start mb-3">
                                       <div>
-                                        <h3 className="font-semibold text-lg">{person.nick_name}</h3>
+                                        <div className="flex items-center gap-2">
+                                          <h3 className="font-semibold text-lg">{person.nick_name}</h3>
+                                          <Link href={`/person/${person.id}`}>
+                                            <Button size="sm" variant="ghost">
+                                              <ExternalLink className="h-3 w-3" />
+                                            </Button>
+                                          </Link>
+                                        </div>
                                         <p className="text-sm text-gray-600">
                                           {person.first_name} {person.last_name}
                                         </p>
@@ -377,7 +386,16 @@ export default function PeopleDashboard() {
                                     ) : (
                                       filteredPeople.map((person) => (
                                         <TableRow key={person.id}>
-                                          <TableCell className="font-medium">{person.nick_name}</TableCell>
+                                          <TableCell className="font-medium">
+                                            <div className="flex items-center gap-2">
+                                              {person.nick_name}
+                                              <Link href={`/person/${person.id}`}>
+                                                <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                                                  <ExternalLink className="h-3 w-3" />
+                                                </Button>
+                                              </Link>
+                                            </div>
+                                          </TableCell>
                                           <TableCell>{person.first_name}</TableCell>
                                           <TableCell>{person.last_name}</TableCell>
                                           <TableCell>{person.gender}</TableCell>
