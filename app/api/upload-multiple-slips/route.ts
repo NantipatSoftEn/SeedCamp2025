@@ -19,6 +19,276 @@ interface AnalysisResult {
   confidence: number;
 }
 
+interface FileProcessingResult {
+  fileName: string;
+  success: boolean;
+  error?: string;
+  id?: string;
+  path?: string;
+  url?: string;
+  extractedAmount?: number;
+  itemName?: string;
+}
+
+interface AnalysisResultWithFileName extends AnalysisResult {
+  fileName: string;
+}
+
+/**
+ * Validates if a file is suitable for processing
+ */
+function validateFile(file: File): { isValid: boolean; error?: string } {
+  if (!file.type.startsWith("image/")) {
+    return { isValid: false, error: "File is not an image" };
+  }
+
+  if (file.size > 10 * 1024 * 1024) {
+    return { isValid: false, error: "File size too large (max 10MB)" };
+  }
+
+  return { isValid: true };
+}
+
+/**
+ * Generates a unique filename for the uploaded file
+ */
+function generateUniqueFileName(personId: string, originalName: string, index: number): string {
+  const fileExtension = originalName.split(".").pop()?.toLowerCase() || "jpg";
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `${personId}_${timestamp}_${index}.${fileExtension}`;
+}
+
+/**
+ * Uploads a file to Supabase storage
+ */
+async function uploadFileToStorage(file: File, filePath: string): Promise<{ success: boolean; publicUrl?: string; error?: string }> {
+  try {
+    console.log(`☁️ Uploading ${file.name} to storage...`);
+    
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("payment-slips")
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error(`❌ Upload failed for ${file.name}:`, uploadError);
+      return { success: false, error: uploadError.message };
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from("payment-slips")
+      .getPublicUrl(filePath);
+
+    return { success: true, publicUrl: urlData.publicUrl };
+  } catch (error) {
+    console.error(`❌ Error uploading ${file.name}:`, error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown upload error" };
+  }
+}
+
+/**
+ * Verifies if a person exists in the database
+ */
+async function verifyPersonExists(personId: string): Promise<{ exists: boolean; data?: any; error?: string }> {
+  try {
+    const { data: personCheck, error: personError } = await supabase
+      .from("seedcamp_people")
+      .select("id, payment_amount")
+      .eq("id", personId)
+      .single();
+
+    if (personError || !personCheck) {
+      return { exists: false, error: `Person with ID ${personId} not found` };
+    }
+
+    return { exists: true, data: personCheck };
+  } catch (error) {
+    return { exists: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
+
+/**
+ * Logs analysis results to console
+ */
+function logAnalysisResults(analysisResults: AnalysisResultWithFileName[], totalExtractedAmount: number): void {
+  if (analysisResults.length === 0) return;
+
+  console.log("\n🤖 === GEMINI ANALYSIS RESULTS ===");
+  analysisResults.forEach((result, index) => {
+    console.log(`📄 Slip ${index + 1}: ${result.fileName}`);
+    console.log(`   💰 Amount: ${result.currency}${result.amount}`);
+    console.log(`   🏷️  Item: ${result.itemName}`);
+    console.log(`   🎯 Confidence: ${(result.confidence * 100).toFixed(1)}%`);
+    console.log(`   👤 Name: ${result.name}`);
+    console.log("   ---");
+  });
+  console.log(`💵 Total extracted amount: ฿${totalExtractedAmount}`);
+  console.log("=================================\n");
+}
+
+/**
+ * Updates person's payment amount and status (currently commented out)
+ */
+async function updatePersonPaymentAmount(
+  personId: string, 
+  currentAmount: number, 
+  additionalAmount: number
+): Promise<{ success: boolean; error?: string }> {
+  const newAmount = currentAmount + additionalAmount;
+  
+  console.log(`💰 Updating person payment amount: ${currentAmount} + ${additionalAmount} = ${newAmount}`);
+
+  const { error: updateError } = await supabase
+    .from("seedcamp_people")
+    .update({
+      payment_amount: newAmount,
+      payment_status: "paid",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", personId);
+
+  if (updateError) {
+    console.error("❌ Failed to update person payment amount:", updateError);
+    return { success: false, error: updateError.message };
+  } else {
+    console.log("✅ Person payment amount updated successfully");
+    return { success: true };
+  }
+}
+
+/**
+ * Inserts payment slip record into database (currently commented out)
+ */
+async function insertPaymentSlipRecord(
+  personId: string,
+  filePath: string,
+  file: File,
+  analysisResult: AnalysisResult | null
+): Promise<{ success: boolean; data?: any; error?: string }> {
+  const insertData = {
+    person_id: personId,
+    path: filePath,
+    original_name: file.name,
+    file_size: file.size,
+    mime_type: file.type,
+    uploaded_at: new Date().toISOString(),
+    extracted_amount: analysisResult?.amount || null,
+    analysis_text: analysisResult?.itemName || null,
+  };
+
+  console.log(`💾 Inserting payment slip record for ${file.name}...`);
+  
+  const { data: insertResult, error: insertError } = await supabase
+    .from("payment_slips")
+    .insert(insertData)
+    .select()
+    .single();
+
+  if (insertError) {
+    console.error(`❌ Database insert failed for ${file.name}:`, insertError);
+    return { success: false, error: insertError.message };
+  }
+
+  return { success: true, data: insertResult };
+}
+
+/**
+ * Processes a single file: validates, uploads, and analyzes
+ */
+async function processSingleFile(
+  file: File, 
+  personId: string, 
+  index: number
+): Promise<{ 
+  result: FileProcessingResult; 
+  analysis: AnalysisResultWithFileName | null;
+  filePath?: string;
+}> {
+  console.log(`📄 Processing file ${index + 1}: ${file.name}`);
+
+  // Validate file
+  const validation = validateFile(file);
+  if (!validation.isValid) {
+    console.warn(`⚠️ Skipping file ${file.name}: ${validation.error}`);
+    return {
+      result: {
+        fileName: file.name,
+        success: false,
+        error: validation.error,
+      },
+      analysis: null,
+    };
+  }
+
+  try {
+    // Generate unique filename and path
+    const fileName = generateUniqueFileName(personId, file.name, index);
+    const filePath = `public/seedcamp2025/${fileName}`;
+
+    // Upload to storage
+    const uploadResult = await uploadFileToStorage(file, filePath);
+    if (!uploadResult.success) {
+      return {
+        result: {
+          fileName: file.name,
+          success: false,
+          error: uploadResult.error,
+        },
+        analysis: null,
+      };
+    }
+
+    // Analyze with Gemini AI
+    const analysisResult = await analyzePaymentSlipWithGemini(file);
+    console.log(`🤖 Analysis result for ${file.name}:`, analysisResult);
+
+    const analysis: AnalysisResultWithFileName = {
+      ...analysisResult,
+      fileName: file.name,
+    };
+
+    // Create database record data (commented out for now)
+    const insertData = {
+      person_id: personId,
+      path: filePath,
+      original_name: file.name,
+      file_size: file.size,
+      mime_type: file.type,
+      uploaded_at: new Date().toISOString(),
+      extracted_amount: analysisResult?.amount || null,
+      analysis_text: analysisResult?.itemName || null,
+    };
+
+    console.log(`✅ Successfully processed ${file.name}`);
+    
+    return {
+      result: {
+        fileName: file.name,
+        success: true,
+        path: filePath,
+        url: uploadResult.publicUrl,
+        extractedAmount: analysisResult?.amount || 0,
+        itemName: analysisResult?.itemName || undefined,
+      },
+      analysis,
+      filePath,
+    };
+  } catch (error) {
+    console.error(`❌ Error processing ${file.name}:`, error);
+    return {
+      result: {
+        fileName: file.name,
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      analysis: null,
+    };
+  }
+}
+
 async function analyzePaymentSlipWithGemini(
   file: File
 ): Promise<AnalysisResult> {
@@ -37,7 +307,7 @@ async function analyzePaymentSlipWithGemini(
     Analyze this payment slip image and extract the following information:
     1. Total amount/price (look for numbers that represent money, currency symbols like ฿, $, etc.)
     2. Item name or description (what was purchased)
-    3. Get name of the person who made the payment
+    3. Get first name of the person who made  payment to accont not a reviced
     
     Please respond in JSON format with:
     {
@@ -63,7 +333,7 @@ async function analyzePaymentSlipWithGemini(
     const response = await result.response;
     const text = response.text();
 
-    console.log(`🤖 Gemini response for ${file.name}:`, text);
+    // console.log(`🤖 Gemini response for ${file.name}:`, text);
 
     // Try to parse JSON response
     let analysisResult: AnalysisResult;
@@ -108,11 +378,12 @@ export async function POST(request: NextRequest) {
   try {
     console.log("📤 Starting multiple payment slips upload...");
 
+    // Parse form data
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
     const personId = formData.get("personId") as string;
-    const analyzeWithAI = formData.get("analyzeWithAI") === "true";
 
+    // Validate input
     if (!files || files.length === 0) {
       return NextResponse.json(
         { success: false, error: "No files provided" },
@@ -130,182 +401,47 @@ export async function POST(request: NextRequest) {
     console.log(`📁 Processing ${files.length} files for person ${personId}`);
 
     // Verify person exists
-    // const { data: personCheck, error: personError } = await supabase
-    //   .from("seedcamp_people")
-    //   .select("id, payment_amount")
-    //   .eq("id", personId)
-    //   .single()
+    const personVerification = await verifyPersonExists(personId);
+    if (!personVerification.exists) {
+      return NextResponse.json(
+        { success: false, error: personVerification.error },
+        { status: 404 }
+      );
+    }
 
-    // if (personError || !personCheck) {
-    //   return NextResponse.json({ success: false, error: `Person with ID ${personId} not found` }, { status: 404 })
-    // }
-
-    const results = [];
-    const analysisResults: Array<{
-      fileName: string;
-      amount: number;
-      itemName: string;
-      currency: string;
-      confidence: number;
-      name:string
-    }> = [];
-
+    // Process all files
+    const results: FileProcessingResult[] = [];
+    const analysisResults: AnalysisResultWithFileName[] = [];
     let totalExtractedAmount = 0;
 
-    // Process each file
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      console.log(`📄 Processing file ${i + 1}/${files.length}: ${file.name}`);
-
-      try {
-        // Validate file
-        if (!file.type.startsWith("image/")) {
-          console.warn(`⚠️ Skipping non-image file: ${file.name}`);
-          continue;
-        }
-
-        if (file.size > 10 * 1024 * 1024) {
-          console.warn(
-            `⚠️ Skipping large file: ${file.name} (${file.size} bytes)`
-          );
-          continue;
-        }
-
-        // Generate unique filename
-        const fileExtension =
-          file.name.split(".").pop()?.toLowerCase() || "jpg";
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const fileName = `${personId}_${timestamp}_${i}.${fileExtension}`;
-        const filePath = `public/seedcamp2025/${fileName}`;
-
-        // Upload to Supabase Storage
-        console.log(`☁️ Uploading ${file.name} to storage...`);
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("payment-slips")
-          .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-          });
-
-        if (uploadError) {
-          console.error(`❌ Upload failed for ${file.name}:`, uploadError);
-          continue;
-        }
-
-        // Get public URL
-        const { data: urlData } = supabase.storage
-          .from("payment-slips")
-          .getPublicUrl(filePath);
-
-        // Analyze with Gemini AI if enabled
-        let analysisResult: AnalysisResult | null = null;
-
-        analysisResult = await analyzePaymentSlipWithGemini(file);
-        console.log(`🤖 Analysis result for ${file.name}:`, analysisResult);
-        totalExtractedAmount += analysisResult.amount;
-
-        analysisResults.push({
-          fileName: file.name,
-          amount: analysisResult.amount,
-          itemName: analysisResult.itemName,
-          currency: analysisResult.currency,
-          confidence: analysisResult.confidence,
-          name: analysisResult.name || "Unknown",
-        });
-
-        // Insert into payment_slips table
-        const insertData = {
-          person_id: personId,
-          path: filePath,
-          original_name: file.name,
-          file_size: file.size,
-          mime_type: file.type,
-          uploaded_at: new Date().toISOString(),
-          extracted_amount: analysisResult?.amount || null,
-          analysis_text: analysisResult?.itemName || null,
-        };
-
-        // console.log(`💾 Inserting payment slip record for ${file.name}...`)
-        // const { data: insertResult, error: insertError } = await supabase
-        //   .from("payment_slips")
-        //   .insert(insertData)
-        //   .select()
-        //   .single()
-
-        // if (insertError) {
-        //   console.error(`❌ Database insert failed for ${file.name}:`, insertError)
-        //   // Clean up uploaded file
-        //   await supabase.storage.from("payment-slips").remove([filePath])
-        //   continue
-        // }
-
-        // results.push({
-        //   id: insertResult.id,
-        //   fileName: file.name,
-        //   path: filePath,
-        //   url: urlData.publicUrl,
-        //   extractedAmount: analysisResult?.amount || 0,
-        //   itemName: analysisResult?.itemName || null,
-        //   success: true,
-        // })
-
-        console.log(`✅ Successfully processed ${file.name}`);
-      } catch (error) {
-        console.error(`❌ Error processing ${file.name}:`, error);
-        results.push({
-          fileName: file.name,
-          error: error instanceof Error ? error.message : "Unknown error",
-          success: false,
-        });
+      const { result, analysis } = await processSingleFile(file, personId, i);
+      
+      results.push(result);
+      
+      if (analysis) {
+        analysisResults.push(analysis);
+        totalExtractedAmount += analysis.amount;
       }
     }
 
-    // Update person's payment amount and status
+    // Log analysis results
+    logAnalysisResults(analysisResults, totalExtractedAmount);
+
+    // Update person's payment amount and status (commented out for now)
     // if (totalExtractedAmount > 0) {
-    //   const currentAmount = personCheck.payment_amount || 0
-    //   const newAmount = currentAmount + totalExtractedAmount
-
-    //   console.log(`💰 Updating person payment amount: ${currentAmount} + ${totalExtractedAmount} = ${newAmount}`)
-
-    //   const { error: updateError } = await supabase
-    //     .from("seedcamp_people")
-    //     .update({
-    //       payment_amount: newAmount,
-    //       payment_status: "paid",
-    //       updated_at: new Date().toISOString(),
-    //     })
-    //     .eq("id", personId)
-
-    //   if (updateError) {
-    //     console.error("❌ Failed to update person payment amount:", updateError)
-    //   } else {
-    //     console.log("✅ Person payment amount updated successfully")
-    //   }
+    //   await updatePersonPaymentAmount(personId, personVerification.data.payment_amount, totalExtractedAmount);
     // }
 
-    // Console log analysis results
-    if (analysisResults.length > 0) {
-      console.log("\n🤖 === GEMINI ANALYSIS RESULTS ===");
-      analysisResults.forEach((result, index) => {
-        console.log(`📄 Slip ${index + 1}: ${result.fileName}`);
-        console.log(`   💰 Amount: ${result.currency}${result.amount}`);
-        console.log(`   🏷️  Item: ${result.itemName}`);
-        console.log(
-          `   🎯 Confidence: ${(result.confidence * 100).toFixed(1)}%`
-        );
-        console.log(`   👤 Name: ${result.name}`);
-        console.log("   ---");
-      });
-      console.log(`💵 Total extracted amount: ฿${totalExtractedAmount}`);
-      console.log("=================================\n");
-    }
-
+    // Calculate summary
     const successCount = results.filter((r) => r.success).length;
     const failCount = results.filter((r) => !r.success).length;
 
     // TODO: Replace with actual first/last name lookup if available
     const firstName = "First";
     const lastName = "Last";
+
     return NextResponse.json({
       success: true,
       message: `Processed ${files.length} files: ${successCount} successful, ${failCount} failed`,
