@@ -92,11 +92,11 @@ async function uploadFileToStorage(file: File, filePath: string): Promise<{ succ
 /**
  * Verifies if a person exists in the database
  */
-async function verifyPersonExists(firstName: string): Promise<{ exists: boolean; data?: any; error?: string }> {
+async function verifyPersonExists(firstName: string): Promise<{ exists: boolean; data?: {id:string,first_name:string}; error?: string }> {
   try {
     const { data: personCheck, error: personError } = await supabase
       .from("seedcamp_people")
-      .select("id, payment_amount, first_name")
+      .select("id, first_name")
       .like("first_name", `%${firstName}%` )
       .single();
 
@@ -160,23 +160,23 @@ async function updatePersonPaymentAmount(
 }
 
 /**
- * Inserts payment slip record into database (currently commented out)
+ * Inserts payment slip record into database
  */
 async function insertPaymentSlipRecord(
-  personId: string,
+  person_id: string,
   filePath: string,
   file: File,
   analysisResult: AnalysisResult | null
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   const insertData = {
-    person_id: personId,
+    person_id,
     path: filePath,
     original_name: file.name,
     file_size: file.size,
     mime_type: file.type,
     uploaded_at: new Date().toISOString(),
     extracted_amount: analysisResult?.amount || null,
-    analysis_text: analysisResult?.itemName || null,
+    // analysis_text: analysisResult?.itemName || null,
   };
 
   console.log(`💾 Inserting payment slip record for ${file.name}...`);
@@ -192,6 +192,7 @@ async function insertPaymentSlipRecord(
     return { success: false, error: insertError.message };
   }
 
+  console.log(`✅ Database record created for ${file.name}:`, insertResult);
   return { success: true, data: insertResult };
 }
 
@@ -248,18 +249,6 @@ async function processSingleFile(
     const analysis: AnalysisResultWithFileName = {
       ...analysisResult,
       fileName: file.name,
-    };
-
-    // Create database record data (commented out for now)
-    const insertData = {
-      person_id: personId,
-      path: filePath,
-      original_name: file.name,
-      file_size: file.size,
-      mime_type: file.type,
-      uploaded_at: new Date().toISOString(),
-      extracted_amount: analysisResult?.amount || null,
-      analysis_text: analysisResult?.itemName || null,
     };
 
     console.log(`✅ Successfully processed ${file.name}`);
@@ -409,19 +398,40 @@ export async function POST(request: NextRequest) {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const { result, analysis } = await processSingleFile(file, personId, i);
+      const { result, analysis, filePath } = await processSingleFile(file, personId, i);
       
-      if (analysis?.name) {
-        const firstName = analysis.name.split(' ')[0];
-        const  result = await  verifyPersonExists(firstName);
-        console.log(`👤 Person verification result for ${firstName}:`, result);
-      }
-
       results.push(result);
       
       if (analysis) {
         analysisResults.push(analysis);
         totalExtractedAmount += analysis.amount;
+      }
+
+      // Always attempt to insert database record after successful upload
+      if (result.success && filePath) {
+        let targetPersonId = personId; // Default to provided personId
+        
+        // If we have analysis with a name, try to find the person
+        if (analysis?.name) {
+          const firstName = analysis.name.split(' ')[0];
+          const { exists, data, error } = await verifyPersonExists(firstName);
+          console.log(`👤 Person verification result for ${firstName}:`, { exists, data, error });
+          
+          if (exists && data?.id) {
+            targetPersonId = data.id;
+            console.log(`✅ Using verified person ID: ${targetPersonId} for ${firstName}`);
+          } else {
+            console.warn(`⚠️ Person with name ${firstName} does not exist, using provided personId: ${personId}`);
+          }
+        }
+        
+        // Insert payment slip record with the determined person ID
+        const insertResult = await insertPaymentSlipRecord(targetPersonId, filePath, file, analysis);
+        if (insertResult.success) {
+          console.log(`✅ Database record inserted for ${file.name}`);
+        } else {
+          console.error(`❌ Failed to insert database record for ${file.name}:`, insertResult.error);
+        }
       }
     }
 
