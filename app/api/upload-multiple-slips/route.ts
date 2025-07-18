@@ -92,16 +92,16 @@ async function uploadFileToStorage(file: File, filePath: string): Promise<{ succ
 /**
  * Verifies if a person exists in the database
  */
-async function verifyPersonExists(personId: string): Promise<{ exists: boolean; data?: any; error?: string }> {
+async function verifyPersonExists(firstName: string): Promise<{ exists: boolean; data?: any; error?: string }> {
   try {
     const { data: personCheck, error: personError } = await supabase
       .from("seedcamp_people")
-      .select("id, payment_amount")
-      .eq("id", personId)
+      .select("id, payment_amount, first_name")
+      .like("first_name", `%${firstName}%` )
       .single();
 
     if (personError || !personCheck) {
-      return { exists: false, error: `Person with ID ${personId} not found` };
+      return { exists: false, error: `Person with name ${firstName} not found` };
     }
 
     return { exists: true, data: personCheck };
@@ -376,7 +376,7 @@ async function analyzePaymentSlipWithGemini(
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("📤 Starting multiple payment slips upload...");
+    // console.log("📤 Starting multiple payment slips upload...");
 
     // Parse form data
     const formData = await request.formData();
@@ -398,16 +398,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`📁 Processing ${files.length} files for person ${personId}`);
+    // console.log(`📁 Processing ${files.length} files for person ${personId}`);
 
-    // Verify person exists
-    const personVerification = await verifyPersonExists(personId);
-    if (!personVerification.exists) {
-      return NextResponse.json(
-        { success: false, error: personVerification.error },
-        { status: 404 }
-      );
-    }
+
 
     // Process all files
     const results: FileProcessingResult[] = [];
@@ -418,6 +411,12 @@ export async function POST(request: NextRequest) {
       const file = files[i];
       const { result, analysis } = await processSingleFile(file, personId, i);
       
+      if (analysis?.name) {
+        const firstName = analysis.name.split(' ')[0];
+        const  result = await  verifyPersonExists(firstName);
+        console.log(`👤 Person verification result for ${firstName}:`, result);
+      }
+
       results.push(result);
       
       if (analysis) {
