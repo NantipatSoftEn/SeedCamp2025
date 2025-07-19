@@ -45,9 +45,14 @@ export interface AnalyticsData {
     totalMoney: number
     collectedMoney: number
   }>
+  groupPaymentAnalysis: Array<{
+    group_care: string
+    total_extracted_amount: number
+    payment_slip_count: number
+  }>
 }
 
-export function calculateAnalytics(people: Person[]): AnalyticsData {
+export function calculateAnalytics(people: Person[], groupPaymentAnalysis: Array<{group_care: string; total_extracted_amount: number; payment_slip_count: number}> = []): AnalyticsData {
   const totalPeople = people.length
 
   // Payment Statistics
@@ -167,6 +172,7 @@ export function calculateAnalytics(people: Person[]): AnalyticsData {
     genderDistribution,
     shirtSizeDistribution,
     groupAnalysis,
+    groupPaymentAnalysis,
   }
 }
 

@@ -1,6 +1,6 @@
 import type { Person } from "@/types/person"
 import { mockPeople } from "@/data/mock-data"
-import { fetchPeople as fetchSupabasePeople, updatePerson as updateSupabasePerson } from "@/lib/supabase"
+import { fetchPeople as fetchSupabasePeople, updatePerson as updateSupabasePerson, fetchGroupPaymentAnalysis } from "@/lib/supabase"
 
 export class DataService {
   private useMockData: boolean
@@ -54,6 +54,20 @@ export class DataService {
     const result = await updateSupabasePerson(id, personData)
     console.log("Supabase update result:", result)
     return result
+  }
+
+  async fetchGroupPaymentAnalysis(): Promise<Array<{group_care: string; total_extracted_amount: number; payment_slip_count: number}>> {
+    if (this.useMockData) {
+      // Return mock data for group payment analysis
+      return [
+        { group_care: "ungroup", total_extracted_amount: 7200, payment_slip_count: 3 },
+        { group_care: "พก.", total_extracted_amount: 5360, payment_slip_count: 5 },
+        { group_care: "จันทรเทียม", total_extracted_amount: 4800, payment_slip_count: 2 },
+        { group_care: "รังสิต", total_extracted_amount: 3840, payment_slip_count: 3 },
+      ];
+    }
+
+    return fetchGroupPaymentAnalysis();
   }
 
   // Method to reset mock data cache

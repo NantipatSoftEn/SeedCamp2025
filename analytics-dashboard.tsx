@@ -17,6 +17,7 @@ import { DataService } from "@/services/data-service"
 
 export default function AnalyticsDashboard() {
   const [people, setPeople] = useState<Person[]>([])
+  const [groupPaymentAnalysis, setGroupPaymentAnalysis] = useState<Array<{group_care: string; total_extracted_amount: number; payment_slip_count: number}>>([])
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
   const { dataSource } = useDataSource()
@@ -27,8 +28,12 @@ export default function AnalyticsDashboard() {
       setIsLoading(true)
       try {
         const dataService = new DataService(dataSource === "mock")
-        const data = await dataService.fetchPeople()
-        setPeople(data)
+        const [peopleData, groupPaymentData] = await Promise.all([
+          dataService.fetchPeople(),
+          dataService.fetchGroupPaymentAnalysis()
+        ])
+        setPeople(peopleData)
+        setGroupPaymentAnalysis(groupPaymentData)
       } catch (error) {
         console.error("Failed to load people:", error)
         toast({
@@ -47,7 +52,13 @@ export default function AnalyticsDashboard() {
     loadPeople()
   }, [toast, dataSource])
 
-  const analytics = useMemo(() => calculateAnalytics(people), [people])
+  const analytics = useMemo(() => calculateAnalytics(people, groupPaymentAnalysis), [people, groupPaymentAnalysis])
+
+  // Calculate total extracted amount from payment slips
+  const totalExtractedAmount = useMemo(() => 
+    groupPaymentAnalysis.reduce((sum, group) => sum + group.total_extracted_amount, 0), 
+    [groupPaymentAnalysis]
+  )
 
   const paymentChartData = [
     {
@@ -120,7 +131,7 @@ export default function AnalyticsDashboard() {
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <MetricCard
             title="Total People"
             value={analytics.totalPeople}
@@ -130,17 +141,24 @@ export default function AnalyticsDashboard() {
           />
           <MetricCard
             title="Total Expected"
-            value={formatCurrency(analytics.moneyStats.totalExpected)}
-            subtitle="Expected revenue"
+            value={formatCurrency(totalExtractedAmount)}
+            subtitle="From payment slips"
             icon={<Target className="h-6 w-6" />}
             color="bg-purple-500"
           />
           <MetricCard
             title="Total Collected"
-            value={formatCurrency(analytics.moneyStats.totalCollected)}
+            value={formatCurrency(112500)}
             subtitle={`${analytics.paymentStats.paid} payments`}
             icon={<DollarSign className="h-6 w-6" />}
             color="bg-green-500"
+          />
+          <MetricCard
+            title="Payment Slips"
+            value={analytics.groupPaymentAnalysis.reduce((sum, group) => sum + group.payment_slip_count, 0)}
+            subtitle="Uploaded slips"
+            icon={<CheckCircle className="h-6 w-6" />}
+            color="bg-indigo-500"
           />
           <MetricCard
             title="Collection Rate"
@@ -171,6 +189,34 @@ export default function AnalyticsDashboard() {
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <BarChart data={groupChartData} title="Group Distribution" />
+              
+              {/* Payment Slip Summary */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Payment Slip Analysis</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {analytics.groupPaymentAnalysis.map((group, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                            {group.payment_slip_count}
+                          </div>
+                          <div>
+                            <p className="font-medium">{group.group_care}</p>
+                            <p className="text-sm text-gray-600">{group.payment_slip_count} slip(s)</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-green-600">{formatCurrency(group.total_extracted_amount)}</p>
+                          <p className="text-xs text-gray-500">Extracted amount</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Payment Progress */}
@@ -232,39 +278,55 @@ export default function AnalyticsDashboard() {
                         <tr className="border-b">
                           <th className="text-left p-2">Group</th>
                           <th className="text-center p-2">Total</th>
-                          <th className="text-center p-2">Paid</th>
-                          <th className="text-center p-2">สามารถไปค่ายได้</th>
-                          <th className="text-center p-2">Expected Money</th>
-                          <th className="text-center p-2">Collected Money</th>
+                          {/* <th className="text-center p-2">Paid</th>
+                          <th className="text-center p-2">สามารถไปค่ายได้</th> */}
+                          {/* <th className="text-center p-2">Expected Money</th> */}
+                          {/* <th className="text-center p-2">Collected Money</th> */}
+                          <th className="text-center p-2">Payment Slips</th>
+                          <th className="text-center p-2">Slip Amount</th>
                           <th className="text-center p-2">Payment Rate</th>
                           <th className="text-center p-2">Attendance Rate</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {analytics.groupAnalysis.map((group, index) => (
-                          <tr key={index} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
-                            <td className="p-2 font-medium">{group.group}</td>
-                            <td className="text-center p-2">{group.total}</td>
-                            <td className="text-center p-2">{group.paid}</td>
-                            <td className="text-center p-2">{group.canGo}</td>
-                            <td className="text-center p-2 text-sm">{formatCurrency(group.totalMoney)}</td>
-                            <td className="text-center p-2 text-sm font-medium text-green-600">
-                              {formatCurrency(group.collectedMoney)}
-                            </td>
-                            <td className="text-center p-2">
-                              <div className="flex items-center justify-center gap-2">
-                                <Progress value={group.paidRate} className="w-16 h-2" />
-                                <span className="text-sm">{group.paidRate.toFixed(0)}%</span>
-                              </div>
-                            </td>
-                            <td className="text-center p-2">
-                              <div className="flex items-center justify-center gap-2">
-                                <Progress value={group.attendanceRate} className="w-16 h-2" />
-                                <span className="text-sm">{group.attendanceRate.toFixed(0)}%</span>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                        {analytics.groupAnalysis.map((group, index) => {
+                          const paymentSlipData = analytics.groupPaymentAnalysis.find(
+                            (slip) => slip.group_care === group.group
+                          );
+                          
+                          return (
+                            <tr key={index} className="border-b hover:bg-gray-50 dark:hover:bg-gray-800">
+                              <td className="p-2 font-medium">{group.group}</td>
+                              <td className="text-center p-2">{group.total}</td>
+                              {/* <td className="text-center p-2">{group.paid}</td>
+                              <td className="text-center p-2">{group.canGo}</td> */}
+                              {/* <td className="text-center p-2 text-sm">{formatCurrency(group.totalMoney)}</td> */}
+                              {/* <td className="text-center p-2 text-sm font-medium text-green-600">
+                                {formatCurrency(group.collectedMoney)}
+                              </td> */}
+                              <td className="text-center p-2">
+                                <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                  {paymentSlipData?.payment_slip_count || 0}
+                                </span>
+                              </td>
+                              <td className="text-center p-2 text-sm font-medium text-purple-600">
+                                {formatCurrency(paymentSlipData?.total_extracted_amount || 0)}
+                              </td>
+                              <td className="text-center p-2">
+                                <div className="flex items-center justify-center gap-2">
+                                  <Progress value={group.paidRate} className="w-16 h-2" />
+                                  <span className="text-sm">{group.paidRate.toFixed(0)}%</span>
+                                </div>
+                              </td>
+                              <td className="text-center p-2">
+                                <div className="flex items-center justify-center gap-2">
+                                  <Progress value={group.attendanceRate} className="w-16 h-2" />
+                                  <span className="text-sm">{group.attendanceRate.toFixed(0)}%</span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

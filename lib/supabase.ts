@@ -235,6 +235,52 @@ export async function verifyPersonExists(firstName: string): Promise<{
 }
 
 /**
+ * Fetches group payment analysis data
+ */
+export async function fetchGroupPaymentAnalysis(): Promise<Array<{
+  group_care: string;
+  total_extracted_amount: number;
+  payment_slip_count: number;
+}>> {
+  const supabase = getSupabaseBrowserClient();
+
+  try {
+    // Try to use a direct SQL query with proper joins
+    const { data, error } = await supabase
+      .from('payment_slips')
+      .select(`
+        extracted_amount,
+        seedcamp_people!inner(group_care)
+      `);
+    
+    if (error) {
+      console.error("Error fetching group payment analysis:", error);
+      throw error;
+    }
+
+    // Group the data manually
+    const groupedData = (data || []).reduce((acc, item) => {
+      const groupCare = (item.seedcamp_people as any)?.group_care || 'ungroup';
+      if (!acc[groupCare]) {
+        acc[groupCare] = {
+          group_care: groupCare,
+          total_extracted_amount: 0,
+          payment_slip_count: 0
+        };
+      }
+      acc[groupCare].total_extracted_amount += item.extracted_amount || 0;
+      acc[groupCare].payment_slip_count += 1;
+      return acc;
+    }, {} as Record<string, {group_care: string; total_extracted_amount: number; payment_slip_count: number}>);
+
+    return Object.values(groupedData).sort((a, b) => b.total_extracted_amount - a.total_extracted_amount);
+  } catch (error) {
+    console.error("Failed to fetch group payment analysis:", error);
+    return [];
+  }
+}
+
+/**
  * Inserts payment slip record into database
  */
 export async function insertPaymentSlipRecord(
