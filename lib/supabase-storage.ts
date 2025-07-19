@@ -634,6 +634,38 @@ export class SupabaseStorageService {
     }
   }
 
+  // ดึงยอดรวม extracted_amount ของบุคคล
+  async getPersonTotalExtractedAmount(personId: string): Promise<{
+    total_slips: number
+    total_extracted_amount: number
+  }> {
+    try {
+      console.log("🔍 Getting total extracted amount for person:", personId)
+
+      // ตรวจสอบ authentication
+      await this.ensureAuthenticated()
+
+      const { data, error } = await this.supabase
+        .from("payment_slips")
+        .select("extracted_amount")
+        .eq("person_id", personId)
+
+      if (error) {
+        console.error("❌ Error fetching payment slips for total:", error)
+        return { total_slips: 0, total_extracted_amount: 0 }
+      }
+
+      const total_slips = data?.length || 0
+      const total_extracted_amount = data?.reduce((sum, slip) => sum + (slip.extracted_amount || 0), 0) || 0
+
+      console.log("💰 Total extracted amount:", { total_slips, total_extracted_amount })
+      return { total_slips, total_extracted_amount }
+    } catch (error) {
+      console.error("❌ Error getting person total extracted amount:", error)
+      return { total_slips: 0, total_extracted_amount: 0 }
+    }
+  }
+
   // ดึง URL ที่ถูกต้องจาก path สำหรับแสดงรูป preview
   getPublicUrl(path: string): string {
     const { data } = this.supabase.storage.from(this.bucketName).getPublicUrl(path)

@@ -25,6 +25,8 @@ interface PaymentSlip {
   uploadedAt: string
   fileSize: number
   mimeType: string
+  extractedAmount?: number
+  analysisText?: string
 }
 
 const getPaymentStatusColor = (status: string) => {
@@ -48,6 +50,8 @@ export default function PersonDetailPage() {
 
   const [person, setPerson] = useState<Person | null>(null)
   const [paymentSlips, setPaymentSlips] = useState<PaymentSlip[]>([])
+  const [totalExtractedAmount, setTotalExtractedAmount] = useState<number>(0)
+  const [totalSlipsCount, setTotalSlipsCount] = useState<number>(0)
   const [isLoading, setIsLoading] = useState(true)
   const [previewSlip, setPreviewSlip] = useState<PaymentSlip | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -81,6 +85,11 @@ export default function PersonDetailPage() {
         if (dataSource === "supabase") {
           const slips = await supabaseStorage.getPersonPaymentSlips(personId)
           setPaymentSlips(slips)
+
+          // Get total extracted amount
+          const totalData = await supabaseStorage.getPersonTotalExtractedAmount(personId)
+          setTotalExtractedAmount(totalData.total_extracted_amount)
+          setTotalSlipsCount(totalData.total_slips)
         }
       } catch (error) {
         console.error("Failed to load person data:", error)
@@ -113,6 +122,13 @@ export default function PersonDetailPage() {
         const remainingSlips = paymentSlips.filter((s) => s.id !== slip.id)
         if (remainingSlips.length === 0) {
           setPerson((prev) => (prev ? { ...prev, payment_status: "Unpaid", payment_slip: undefined } : null))
+          setTotalExtractedAmount(0)
+          setTotalSlipsCount(0)
+        } else {
+          // Refresh total extracted amount
+          const totalData = await supabaseStorage.getPersonTotalExtractedAmount(person.id)
+          setTotalExtractedAmount(totalData.total_extracted_amount)
+          setTotalSlipsCount(totalData.total_slips)
         }
 
         toast({
@@ -263,7 +279,7 @@ export default function PersonDetailPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">Payment Amount</span>
                 </div>
-                <p className="font-medium text-lg">{formatCurrency(person.payment_amount)}</p>
+                {/* <p className="font-medium text-lg">{formatCurrency(person.payment_amount)}</p> */}
               </div>
 
               {person.congenital_disease && (
@@ -301,28 +317,35 @@ export default function PersonDetailPage() {
               <Card>
                 <CardContent className="p-4">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-blue-600">{paymentSlips.length}</p>
+                    <p className="text-2xl font-bold text-blue-600">{dataSource === "supabase" ? totalSlipsCount : paymentSlips.length}</p>
                     <p className="text-sm text-gray-600">Total Slips</p>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
+              {/* <Card>
                 <CardContent className="p-4">
                   <div className="text-center">
                     <p className="text-2xl font-bold text-green-600">{formatCurrency(person.payment_amount)}</p>
-                    <p className="text-sm text-gray-600">Amount per Slip</p>
+                    <p className="text-sm text-gray-600">Expected per Slip</p>
                   </div>
                 </CardContent>
-              </Card>
+              </Card> */}
 
               <Card>
                 <CardContent className="p-4">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-purple-600">{formatCurrency(totalSlipAmount)}</p>
-                    <p className="text-sm text-gray-600">Total Value</p>
+                    <p className="text-2xl font-bold text-purple-600">
+                      {dataSource === "supabase" ? formatCurrency(totalExtractedAmount) : formatCurrency(totalSlipAmount)}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {dataSource === "supabase" ? "เงินทั้งหมดที่จ่ายแล้ว" : "Total Expected Value"}
+                    </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      ({paymentSlips.length} × {formatCurrency(person.payment_amount)})
+                      {dataSource === "supabase" 
+                        ? `From ${totalSlipsCount} payment slips`
+                        : `(${paymentSlips.length} × ${formatCurrency(person.payment_amount)})`
+                      }
                     </p>
                   </div>
                 </CardContent>
@@ -384,6 +407,11 @@ export default function PersonDetailPage() {
                         <div className="text-xs text-gray-400">
                           {new Date(slip.uploadedAt).toLocaleTimeString("th-TH")}
                         </div>
+                        {slip.extractedAmount && (
+                          <div className="text-sm font-medium text-green-600">
+                            {formatCurrency(slip.extractedAmount)}
+                          </div>
+                        )}
                         <div className="flex gap-2 pt-2">
                           <Button size="sm" variant="outline" onClick={() => openPreview(slip)} className="flex-1">
                             <Eye className="h-3 w-3 mr-1" />
