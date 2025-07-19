@@ -5,7 +5,7 @@ import { DataReviewModal } from "@/components/data-review-modal";
 
 export default function TestUploadPage() {
   const [files, setFiles] = useState<File[]>([]);
-  const [authId, setAuthId] = useState<string>("");
+  const [authId, setAuthId] = useState<string>("0fbd3ea4-fe7b-4b4c-8c62-04461e5aeed7");
   const [response, setResponse] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -192,8 +192,21 @@ export default function TestUploadPage() {
         </p>
       </div>
 
+      {analysisResults && (
+        <DataReviewModal
+          isOpen={showReviewModal}
+          onClose={() => {
+            setShowReviewModal(false);
+            setLoading(false);
+          }}
+          onConfirm={handleConfirmUpload}
+          analysisResults={analysisResults}
+          images={imagePreviewsData}
+        />
+      )}
+
       {/* Data Review Modal */}
-      <DataReviewModal
+      {/* <DataReviewModal
         isOpen={showReviewModal}
         onClose={() => {
           setShowReviewModal(false);
@@ -202,7 +215,7 @@ export default function TestUploadPage() {
         onConfirm={handleConfirmUpload}
         analysisResults={analysisResults}
         images={imagePreviewsData}
-      />
+      /> */}
     </div>
   );
 }
