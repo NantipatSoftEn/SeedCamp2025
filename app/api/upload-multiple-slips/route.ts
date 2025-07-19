@@ -7,7 +7,7 @@ import {
 import {
   verifyPersonExists,
   insertPaymentSlipRecord,
-} from "@/utils/database-utils";
+} from "@/lib/supabase";
 import { processSingleFile } from "@/utils/file-processing";
 // import { updatePersonPaymentAmount } from "@/utils/payment-utils"; // Uncomment when needed
 

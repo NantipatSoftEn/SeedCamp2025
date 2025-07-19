@@ -4,8 +4,8 @@ export * from "./file-utils";
 // Storage utilities  
 export * from "./storage-utils";
 
-// Database utilities
-export * from "./database-utils";
+// Database utilities (now in supabase.ts)
+export { verifyPersonExists, insertPaymentSlipRecord } from "@/lib/supabase";
 
 // AI utilities
 export * from "./ai-utils";

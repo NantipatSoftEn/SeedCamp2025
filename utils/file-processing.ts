@@ -6,7 +6,7 @@ import {
   type AnalysisResultWithFileName 
 } from "./file-utils";
 import { uploadFileToStorage } from "./storage-utils";
-import { verifyPersonExists, insertPaymentSlipRecord } from "./database-utils";
+import { verifyPersonExists, insertPaymentSlipRecord } from "@/lib/supabase";
 import { analyzePaymentSlipWithGemini } from "./ai-utils";
 
 /**
