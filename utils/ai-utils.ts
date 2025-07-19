@@ -28,8 +28,7 @@ export async function analyzePaymentSlipWithGemini(
     Analyze this payment slip image and extract the following information:
     1. Total amount/price (look for numbers that represent money, currency symbols like ฿, $, etc.)
     2. Item name or description (what was purchased)
-    3. Get first name of the person who made  payment to accont not a reviced
-    
+    3. Get first name of the person who made  payment to account not a received
     Please respond in JSON format with:
     {
       "name": "<first name> <last name>",

@@ -1,16 +1,28 @@
 "use client";
 
 import { useState } from "react";
+import { DataReviewModal } from "@/components/data-review-modal";
 
 export default function TestUploadPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [authId, setAuthId] = useState<string>("");
   const [response, setResponse] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [analysisResults, setAnalysisResults] = useState<any[]>([]);
+  const [imagePreviewsData, setImagePreviewsData] = useState<{ file: File; preview: string }[]>([]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setFiles(Array.from(e.target.files));
+      const selectedFiles = Array.from(e.target.files);
+      setFiles(selectedFiles);
+      
+      // Create image previews
+      const previews = selectedFiles.map(file => {
+        const preview = URL.createObjectURL(file);
+        return { file, preview };
+      });
+      setImagePreviewsData(previews);
     }
   };
 
@@ -31,13 +43,56 @@ export default function TestUploadPage() {
     setResponse(null);
 
     try {
+      // First, do initial analysis without saving to database
       const formData = new FormData();
-      files.forEach((file, idx) => {
+      files.forEach((file) => {
         formData.append("files", file);
       });
       formData.append("authId", authId);
-      const res = await fetch("/api/upload-multiple-slips", {
+      formData.append("reviewMode", "true"); // Add review mode flag
+      
+      const res = await fetch("/api/analyze-multiple-slips", {
         method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      
+      if (data.success && data.analysisResults) {
+        // Show review modal with analysis results
+        setAnalysisResults(data.analysisResults);
+        setShowReviewModal(true);
+        setLoading(false);
+      } else {
+        setResponse({
+          status: res.status,
+          statusText: res.statusText,
+          data: data,
+        });
+        setLoading(false);
+      }
+    } catch (error) {
+      setResponse({
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmUpload = async (editedData: any[]) => {
+    setLoading(true);
+    setShowReviewModal(false);
+
+    try {
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append("files", file);
+      });
+      formData.append("authId", authId);
+      formData.append("editedData", JSON.stringify(editedData));
+      
+      const res = await fetch("/api/upload-multiple-slips", {
+        method: "POST", 
         body: formData,
       });
 
@@ -58,7 +113,7 @@ export default function TestUploadPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Test File Upload API</h1>
+      <h1 className="text-3xl font-bold mb-6"> File Upload API</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
@@ -125,15 +180,29 @@ export default function TestUploadPage() {
           API Endpoint Info:
         </h3>
         <p className="text-sm text-yellow-700">
-          <strong>URL:</strong> /api/analyze-payment-slip
+          <strong>URL:</strong> /api/analyze-multiple-slips → /api/upload-multiple-slips
           <br />
           <strong>Method:</strong> POST
           <br />
           <strong>Content-Type:</strong> multipart/form-data
           <br />
-          <strong>Body:</strong> FormData with 'files' (multiple) and 'personId' fields
+          <strong>Flow:</strong> AI Analysis → Review & Edit → Upload to Database
+          <br />
+          <strong>Body:</strong> FormData with 'files' (multiple) and 'authId' fields
         </p>
       </div>
+
+      {/* Data Review Modal */}
+      <DataReviewModal
+        isOpen={showReviewModal}
+        onClose={() => {
+          setShowReviewModal(false);
+          setLoading(false);
+        }}
+        onConfirm={handleConfirmUpload}
+        analysisResults={analysisResults}
+        images={imagePreviewsData}
+      />
     </div>
   );
 }
