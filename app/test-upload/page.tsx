@@ -4,7 +4,7 @@ import { useState } from "react";
 
 export default function TestUploadPage() {
   const [files, setFiles] = useState<File[]>([]);
-  const [personId, setPersonId] = useState<string>("");
+  const [authId, setAuthId] = useState<string>("");
   const [response, setResponse] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -22,8 +22,8 @@ export default function TestUploadPage() {
       return;
     }
 
-    if (!personId) {
-      alert("Please enter a person ID");
+    if (!authId) {
+      alert("Please enter an auth ID");
       return;
     }
 
@@ -35,7 +35,7 @@ export default function TestUploadPage() {
       files.forEach((file, idx) => {
         formData.append("files", file);
       });
-      formData.append("personId", personId);
+      formData.append("authId", authId);
       const res = await fetch("/api/upload-multiple-slips", {
         method: "POST",
         body: formData,
@@ -67,9 +67,9 @@ export default function TestUploadPage() {
           </label>
           <input
             type="text"
-            id="personId"
-            value={personId}
-            onChange={(e) => setPersonId(e.target.value)}
+            id="authId"
+            value={authId}
+            onChange={(e) => setAuthId(e.target.value)}
             className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Enter person ID (e.g., 12345)"
             required

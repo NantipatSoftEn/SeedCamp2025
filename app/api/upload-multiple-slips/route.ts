@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
             console.log(`✅ Using verified : ${data.id} for ${firstName}`);
           } else {
             console.warn(
-              `⚠️ Person with name ${firstName} does not exist, using provided personId: ${myAccountId}`
+              `⚠️ Person with name ${firstName} does not exist, using provided personId: ${authId}`
             );
           }
         }
