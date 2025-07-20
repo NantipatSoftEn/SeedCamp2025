@@ -14,7 +14,7 @@ Tool for tracking slip audits and managing team members for Seed Camp 2025. Feat
 
 <img width="681" height="878" alt="image" src="https://github.com/user-attachments/assets/230c95de-2619-41f5-b1eb-27dc0f5d0c63" />
 
-<img width="1492" height="786" alt="image" src="https://github.com/user-attachments/assets/76514163-4242-450e-959e-294e95508a25" />
+<img width="904" height="293" alt="image" src="https://github.com/user-attachments/assets/27ad60bc-d6ad-49a1-8d2d-6c1f39e8b776" />
 
 <img width="1229" height="889" alt="image" src="https://github.com/user-attachments/assets/87a03c97-8402-4869-856f-bee9fa851d4d" />
 
