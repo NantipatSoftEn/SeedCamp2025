@@ -1,30 +1,19 @@
-# SeedCamp2025
+# SeedCamp2025 
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+Tool for tracking slip audits and managing team members for Seed Camp 2025. Features include user authentication, team management, and slip audit tracking.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/nantipatsoftens-projects/v0-seed-camp2025)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/pVB7kvF6WHl)
+## Preview
 
-## Overview
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+<img width="776" height="560" alt="image" src="https://github.com/user-attachments/assets/ce873b69-50f3-4706-a0d8-a55d84f8aa8d" />
 
-## Deployment
+<img width="520" height="535" alt="image" src="https://github.com/user-attachments/assets/f035ac26-9ff9-4fb1-986c-1007245f10c1" />
 
-Your project is live at:
 
-**[https://vercel.com/nantipatsoftens-projects/v0-seed-camp2025](https://vercel.com/nantipatsoftens-projects/v0-seed-camp2025)**
+<img width="1524" height="875" alt="image" src="https://github.com/user-attachments/assets/13c52fc6-2962-4cbf-ba58-d04b72f52b74" />
 
-## Build your app
+<img width="681" height="878" alt="image" src="https://github.com/user-attachments/assets/230c95de-2619-41f5-b1eb-27dc0f5d0c63" />
 
-Continue building your app on:
+<img width="1492" height="786" alt="image" src="https://github.com/user-attachments/assets/76514163-4242-450e-959e-294e95508a25" />
 
-**[https://v0.dev/chat/projects/pVB7kvF6WHl](https://v0.dev/chat/projects/pVB7kvF6WHl)**
 
-## How It Works
-
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
