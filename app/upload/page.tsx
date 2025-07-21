@@ -83,7 +83,7 @@ export default function TestUploadPage() {
       files.forEach((file) => {
         formData.append("files", file);
       });
-      formData.append("firstName", authId.trim());
+      formData.append("authId", authId.trim());
       formData.append("reviewMode", "true"); // Add review mode flag
       
       const res = await fetch("/api/analyze-multiple-slips", {

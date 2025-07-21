@@ -595,9 +595,9 @@ export class SupabaseStorageService {
       console.log("🔍 Searching for payment slips for person:", personId)
 
       // ตรวจสอบ authentication
-      const { user } = await this.ensureAuthenticated()
+      // const { user } = await this.ensureAuthenticated()
 
-      console.log("🔍 Searching for payment slips for person:", personId, "by user:", user.id)
+      // console.log("🔍 Searching for payment slips for person:", personId, "by user:", user.id)
 
       const { data, error } = await this.supabase
         .from("payment_slips")
