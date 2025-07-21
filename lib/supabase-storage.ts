@@ -643,7 +643,7 @@ export class SupabaseStorageService {
       console.log("🔍 Getting total extracted amount for person:", personId)
 
       // ตรวจสอบ authentication
-      await this.ensureAuthenticated()
+      // await this.ensureAuthenticated()
 
       const { data, error } = await this.supabase
         .from("payment_slips")
